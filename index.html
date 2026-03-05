@@ -1,0 +1,1315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <title>Malto Dextrin — Bard Tracker</title>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #141618; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect, useCallback, useRef } = React;
+
+    // ─────────────────────────────────────────────────────────────
+    //  CONSTANTS
+    // ─────────────────────────────────────────────────────────────
+    const CHAR = {
+      name:"Malto Dextrin", class:"Bard", subclass:"College of Eloquence",
+      race:"Human", background:"Entertainer", campaign:"Myshem",
+    };
+
+    const SKILL_GROUPS = [
+      { ability:"STR", color:"#c0a060", skills:[
+        {name:"STR Save",   prof:0, isSave:true,  abil:0},
+        {name:"Athletics",  prof:0, isSave:false, abil:0},
+      ]},
+      { ability:"DEX", color:"#70b080", skills:[
+        {name:"DEX Save",        prof:1, isSave:true,  abil:2},
+        {name:"Acrobatics",      prof:0, isSave:false, abil:2},
+        {name:"Sleight of Hand", prof:0, isSave:false, abil:2},
+        {name:"Stealth",         prof:0, isSave:false, abil:2},
+      ]},
+      { ability:"CON", color:"#c07070", skills:[
+        {name:"CON Save", prof:0, isSave:true, abil:4},
+      ]},
+      { ability:"INT", color:"#7090c0", skills:[
+        {name:"INT Save",      prof:0, isSave:true,  abil:1},
+        {name:"Arcana",        prof:0, isSave:false, abil:1},
+        {name:"History",       prof:0, isSave:false, abil:1},
+        {name:"Investigation", prof:1, isSave:false, abil:1},
+        {name:"Nature",        prof:0, isSave:false, abil:1},
+        {name:"Religion",      prof:0, isSave:false, abil:1},
+      ]},
+      { ability:"WIS", color:"#90b090", skills:[
+        {name:"WIS Save",      prof:0, isSave:true,  abil:3},
+        {name:"Anml Handling", prof:0, isSave:false, abil:3},
+        {name:"Insight",       prof:0, isSave:false, abil:3},
+        {name:"Medicine",      prof:0, isSave:false, abil:3},
+        {name:"Perception",    prof:0, isSave:false, abil:3},
+        {name:"Survival",      prof:0, isSave:false, abil:3},
+      ]},
+      { ability:"CHA", color:"#b070b0", skills:[
+        {name:"CHA Save",     prof:1, isSave:true,  abil:5},
+        {name:"Deception",    prof:2, isSave:false, abil:5},
+        {name:"Intimidation", prof:0, isSave:false, abil:5},
+        {name:"Performance",  prof:1, isSave:false, abil:5},
+        {name:"Persuasion",   prof:2, isSave:false, abil:5},
+      ]},
+    ];
+
+    const BARD_SLOTS = [
+      [2,0,0,0,0,0,0,0,0],[3,0,0,0,0,0,0,0,0],[4,2,0,0,0,0,0,0,0],[4,3,0,0,0,0,0,0,0],
+      [4,3,2,0,0,0,0,0,0],[4,3,3,0,0,0,0,0,0],[4,3,3,1,0,0,0,0,0],[4,3,3,2,0,0,0,0,0],
+      [4,3,3,3,1,0,0,0,0],[4,3,3,3,2,0,0,0,0],[4,3,3,3,2,1,0,0,0],[4,3,3,3,2,1,0,0,0],
+      [4,3,3,3,2,1,1,0,0],[4,3,3,3,2,1,1,0,0],[4,3,3,3,2,1,1,1,0],[4,3,3,3,2,1,1,1,0],
+      [4,3,3,3,2,1,1,1,1],[4,3,3,3,3,1,1,1,1],[4,3,3,3,3,2,1,1,1],[4,3,3,3,3,2,2,1,1],
+    ];
+
+    const DEFAULT_STATE = {
+      charLevel:3, hp:19, maxHp:24, ac:13, initMod:4, speed:30, pasPerc:12,
+      abilities:[15,14,14,14,13,18,2,0],
+      slotUsed:[0,0,0,0,0,0,0,0,0],
+      bardicUsed:0, currency:[0,282,8,0],
+      conditions:{},
+      inventory:[],
+      hitDiceUsed:0,
+      bonusHitDice:1,
+      encouragingSongUsed:0,
+      beastMode:false,
+    };
+
+    const PAGES     = ["INFO","ABILITIES","SKILLS","COMBAT","SPELLCASTING","SPELL SLOTS","FEATURES","CONDITIONS","INVENTORY","CURRENCY"];
+    const READ_ONLY = new Set([0,2,4]);
+
+    const CONDITIONS_LIST = [
+      "Blinded","Charmed","Deafened","Frightened","Grappled",
+      "Incapacitated","Invisible","Paralyzed","Petrified","Poisoned",
+      "Prone","Restrained","Stunned","Unconscious","Exhaustion",
+    ];
+
+    // ─────────────────────────────────────────────────────────────
+    //  HELPERS
+    // ─────────────────────────────────────────────────────────────
+    const abilMod = s => Math.floor((s-10)/2);
+    const sign    = n => n>=0 ? `+${n}` : `${n}`;
+    const slotMax = (lv,i) => BARD_SLOTS[Math.min(Math.max(lv,1),20)-1][i];
+    const unlockedSlots = lv => {
+      let c=0; for(let i=0;i<9;i++){if(slotMax(lv,i)>0)c++;else break;} return c;
+    };
+    const calcSkill = (sk,ab) => {
+      const mod=abilMod(ab[sk.abil]),pb=ab[6],joat=Math.floor(pb/2);
+      if(sk.isSave) return mod+(sk.prof>=1?pb:0);
+      if(sk.prof===2) return mod+pb*2;
+      if(sk.prof===1) return mod+pb;
+      return mod+joat;
+    };
+    const fieldCount = (pg,lv,invLen) => [0,8,0,7,0,unlockedSlots(lv),2,15,invLen||0,4][pg]||0;
+    const loadState = () => {
+      try {
+        const r = localStorage.getItem("malto_v3");
+        if(r) {
+          const saved = JSON.parse(r);
+          return {
+            ...DEFAULT_STATE,
+            ...saved,
+            inventory: Array.isArray(saved.inventory) ? saved.inventory : DEFAULT_STATE.inventory,
+            conditions: saved.conditions && typeof saved.conditions==="object" ? saved.conditions : DEFAULT_STATE.conditions,
+            slotUsed: Array.isArray(saved.slotUsed) ? saved.slotUsed : DEFAULT_STATE.slotUsed,
+            abilities: Array.isArray(saved.abilities) ? saved.abilities : DEFAULT_STATE.abilities,
+            currency: Array.isArray(saved.currency) ? saved.currency : DEFAULT_STATE.currency,
+          };
+        }
+      } catch(e) {}
+      return {...DEFAULT_STATE};
+    };
+    const saveState = s => {try{localStorage.setItem("malto_v3",JSON.stringify(s));}catch(e){}};
+
+    // ─────────────────────────────────────────────────────────────
+    //  HOLD-TO-REPEAT BUTTON
+    // ─────────────────────────────────────────────────────────────
+    function HoldBtn({ label, cls="", off=false, onFire }) {
+      const [active, setActive] = useState(false);
+      const btnRef      = useRef(null);
+      const fireRef     = useRef(onFire);
+      const offRef      = useRef(off);
+      const delayRef    = useRef(null);
+      const intervalRef = useRef(null);
+      fireRef.current   = onFire;
+      offRef.current    = off;
+
+      useEffect(() => {
+        const el = btnRef.current;
+        if (!el) return;
+        const stop = () => {
+          clearTimeout(delayRef.current);
+          clearInterval(intervalRef.current);
+          delayRef.current = null;
+          intervalRef.current = null;
+          setActive(false);
+        };
+        const start = (e) => {
+          e.preventDefault();
+          if (offRef.current) return;
+          setActive(true);
+          fireRef.current();
+          delayRef.current = setTimeout(() => {
+            intervalRef.current = setInterval(() => fireRef.current(), 100);
+          }, 600);
+        };
+        el.addEventListener("pointerdown", start);
+        el.addEventListener("pointerup",   stop);
+        el.addEventListener("pointercancel", stop);
+        el.addEventListener("contextmenu", e => e.preventDefault());
+        return () => {
+          el.removeEventListener("pointerdown", start);
+          el.removeEventListener("pointerup",   stop);
+          el.removeEventListener("pointercancel", stop);
+          stop();
+        };
+      }, []);
+
+      return (
+        <button ref={btnRef} className={`btn${cls?" "+cls:""}${off?" off":""}${active?" active":""}`}>{label}</button>
+      );
+    }
+
+    function Btn({ label, cls="", off=false, onClick }) {
+      const [active, setActive] = useState(false);
+      const press   = (e) => { e.preventDefault(); if(off||!onClick)return; setActive(true); onClick(); };
+      const release = () => setActive(false);
+      return (
+        <button
+          className={`btn${cls?" "+cls:""}${off?" off":""}${active?" active":""}`}
+          onPointerDown={press} onPointerUp={release} onPointerLeave={release} onPointerCancel={release}
+          onContextMenu={e=>e.preventDefault()}
+        >{label}</button>
+      );
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    //  CSS
+    // ─────────────────────────────────────────────────────────────
+    const CSS = `
+      @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@700&display=swap');
+      *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+      :root{
+        --bg:#141618; --pan:#1c1f22; --scr:#111315; --bd:#2e3338; --bd2:#222629;
+        --hi:#dde1e5; --mid:#7a8490; --dim:#3a4148; --off:#2a2f35;
+        --sel:#242830;
+        --am:#d4a017; --rd:#c94040; --gr:#3a9060;
+        --mono:'Share Tech Mono',monospace; --head:'Orbitron',monospace;
+      }
+      body{background:var(--bg);}
+      .root{
+        min-height:100vh;display:flex;align-items:center;justify-content:center;
+        background:var(--bg);font-family:var(--mono);padding:8px;
+      }
+      .device{
+        display:flex;flex-direction:row;align-items:stretch;
+        background:var(--pan);border:2px solid var(--bd);border-radius:4px;
+        box-shadow:0 6px 40px #0009;
+        width:100%;max-width:700px;
+      }
+      .side{display:flex;flex-direction:column;width:112px;flex-shrink:0;padding:8px 6px;gap:5px;}
+      .side.L{border-right:2px solid var(--bd);}
+      .side.R{border-left:2px solid var(--bd);}
+      .side-lbl{
+        font-family:var(--head);font-size:7px;color:var(--mid);
+        letter-spacing:2px;text-align:center;padding:4px 0 6px;
+        border-bottom:1px solid var(--bd2);text-transform:uppercase;font-weight:bold;
+      }
+      .gap{flex:1;min-height:4px;}
+      .hr{border:none;border-top:1px solid var(--bd2);margin:2px 0;}
+      .side-info{font-size:9px;color:var(--mid);text-align:center;line-height:2.1;font-weight:bold;}
+      .btn{
+        position:relative;width:100%;min-height:42px;
+        display:flex;align-items:center;justify-content:center;text-align:center;
+        background:var(--bg);border:1px solid var(--bd2);border-radius:3px;
+        color:var(--mid);font-family:var(--mono);font-size:11px;font-weight:bold;
+        letter-spacing:0.5px;line-height:1.3;padding:6px 6px 6px 12px;
+        cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:none;
+      }
+      .btn::before{
+        content:'';position:absolute;left:0;top:18%;bottom:18%;
+        width:3px;background:var(--off);border-radius:0 2px 2px 0;
+      }
+      .btn.active{background:var(--sel);color:var(--hi);border-color:var(--dim);}
+      .btn.active::before{background:var(--dim);}
+      .btn.hi{color:var(--hi);border-color:var(--dim);}
+      .btn.hi::before{background:var(--dim);}
+      .btn.ok{color:var(--gr);border-color:#1a3025;}
+      .btn.ok::before{background:#1a3025;}
+      .btn.ok.active{background:#0a1a10;color:#5abf8a;border-color:var(--gr);}
+      .btn.danger{color:var(--rd);border-color:#3a1515;}
+      .btn.danger::before{background:#3a1515;}
+      .btn.danger.active{background:#1e0808;color:#e05050;border-color:var(--rd);}
+      .btn.warn{color:var(--am);border-color:#3a2c08;}
+      .btn.warn::before{background:#3a2c08;}
+      .btn.warn.active{background:#1e1600;color:#e8b820;border-color:var(--am);}
+      .btn.off{opacity:0.18;pointer-events:none;}
+      .screen-area{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden;}
+      .titlebar{
+        display:flex;justify-content:space-between;align-items:center;
+        padding:7px 12px;border-bottom:2px solid var(--bd);background:var(--bg);flex-shrink:0;
+      }
+      .tb-name{font-family:var(--head);font-size:10px;color:var(--hi);letter-spacing:3px;}
+      .tb-badge{font-size:8px;padding:2px 7px;border:1px solid;border-radius:2px;animation:blink .9s step-end infinite;font-weight:bold;}
+      .tb-edit{color:var(--am);border-color:var(--am);}
+      .tb-dying{color:var(--rd);border-color:var(--rd);}
+      .tb-pg{font-size:9px;color:var(--mid);font-weight:bold;}
+      @keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
+      .screen{
+        flex:1;background:var(--scr);position:relative;overflow:hidden;
+        background-image:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.1) 3px,rgba(0,0,0,.1) 4px);
+        min-height:340px;
+      }
+      .screen-inner{position:absolute;inset:0;display:flex;flex-direction:column;padding:6px 10px;overflow:hidden;}
+      .row{
+        display:flex;justify-content:space-between;align-items:center;
+        padding:0 6px;border-bottom:1px solid var(--bd2);
+        color:var(--hi);flex:1;min-height:0;
+      }
+      .row:last-child{border-bottom:none;}
+      .row.sel{background:var(--sel);}
+      .lbl{color:var(--mid);font-size:9px;letter-spacing:.5px;font-weight:bold;}
+      .val{font-size:14px;}
+      .ab-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;flex:1;}
+      .ab-cell{
+        border:1px solid var(--bd2);padding:5px 10px;border-radius:3px;
+        display:flex;flex-direction:column;gap:2px;justify-content:center;
+      }
+      .ab-cell.sel{border-color:var(--dim);background:var(--sel);}
+      .ab-name{font-size:8px;color:var(--mid);letter-spacing:1px;font-weight:bold;}
+      .ab-val{font-size:20px;color:var(--hi);line-height:1.1;}
+      .ab-mod{font-size:10px;color:var(--mid);}
+      .hp-wrap{flex-shrink:0;margin-bottom:6px;}
+      .hp-lbl{display:flex;justify-content:space-between;font-size:9px;color:var(--mid);font-weight:bold;margin-bottom:3px;}
+      .hp-lbl span:last-child{color:var(--hi);}
+      .hp-outer{height:8px;border:1px solid var(--dim);background:var(--bg);position:relative;border-radius:1px;}
+      .hp-inner{position:absolute;top:1px;left:1px;bottom:1px;background:var(--hi);transition:width .2s;border-radius:1px;}
+      .hp-inner.mid{background:var(--am);}
+      .hp-inner.low{background:var(--rd);animation:blink .55s ease-in-out infinite;}
+      .sk-group-hdr{
+        display:flex;align-items:center;gap:6px;
+        padding:3px 6px;background:var(--bd2);
+        border-top:1px solid var(--bd);border-bottom:1px solid var(--bd);
+        flex-shrink:0;
+      }
+      .sk-group-name{font-size:8px;font-weight:bold;letter-spacing:3px;font-family:var(--head);}
+      .sk-group-line{flex:1;height:1px;background:var(--bd);}
+      .sk-row{
+        display:flex;justify-content:space-between;align-items:center;
+        padding:0 6px 0 20px;border-bottom:1px solid var(--bd2);
+        color:var(--hi);flex:1;min-height:0;
+      }
+      .sk-row.save-row{padding-left:6px;}
+      .sk-right{display:flex;align-items:center;gap:8px;}
+      .sk-prof{font-size:8px;font-weight:bold;letter-spacing:1px;}
+      .sk-val{font-size:14px;width:32px;text-align:right;}
+      .scrl-hint{font-size:9px;color:var(--mid);text-align:center;padding:3px 0;flex-shrink:0;font-weight:bold;}
+      .sp-row{
+        display:flex;align-items:center;padding:0 6px;gap:5px;
+        color:var(--hi);border-bottom:1px solid var(--bd2);flex:1;min-height:0;
+      }
+      .sp-row:last-child{border-bottom:none;}
+      .sp-row.sel{background:var(--sel);}
+      .sp-lbl{width:36px;flex-shrink:0;font-size:9px;color:var(--mid);font-weight:bold;}
+      .sp-pips{display:flex;gap:4px;flex:1;flex-wrap:wrap;align-items:center;}
+      .sp-pip{width:12px;height:12px;border:1px solid var(--dim);border-radius:2px;flex-shrink:0;}
+      .sp-pip.on{background:var(--hi);border-color:var(--hi);}
+      .sp-frac{font-size:10px;width:28px;text-align:right;flex-shrink:0;}
+      .bardic{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;gap:16px;}
+      .b-lbl{font-size:9px;color:var(--mid);letter-spacing:3px;font-weight:bold;font-family:var(--head);}
+      .b-pips{display:flex;gap:12px;}
+      .b-pip{width:30px;height:30px;border:2px solid var(--dim);border-radius:3px;}
+      .b-pip.on{background:var(--hi);border-color:var(--hi);}
+      .b-rem{font-size:16px;color:var(--hi);}
+      .cur-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;flex:1;}
+      .cur-cell{
+        border:1px solid var(--bd2);padding:8px 12px;border-radius:3px;
+        display:flex;flex-direction:column;gap:4px;justify-content:center;
+      }
+      .cur-cell.sel{border-color:var(--dim);background:var(--sel);}
+      .cur-name{font-size:9px;letter-spacing:2px;font-weight:bold;}
+      .cur-val{font-size:22px;color:var(--hi);}
+      .sc-note{font-size:8px;color:var(--mid);padding:3px 4px 5px;border-bottom:1px solid var(--bd2);flex-shrink:0;letter-spacing:1px;font-weight:bold;}
+      .sc-row{display:flex;flex-direction:column;padding:0 8px;border-bottom:1px solid var(--bd2);flex:1;justify-content:center;}
+      .sc-row:last-child{border-bottom:none;}
+      .sc-lbl{font-size:9px;color:var(--mid);letter-spacing:1px;margin-bottom:4px;font-weight:bold;}
+      .sc-val{font-size:26px;color:var(--hi);}
+      .info-row{
+        display:flex;justify-content:space-between;align-items:center;
+        padding:0 6px;border-bottom:1px solid var(--bd2);flex:1;min-height:0;
+      }
+      .info-row:last-child{border-bottom:none;}
+      .info-lbl{font-size:9px;color:var(--mid);letter-spacing:1px;flex-shrink:0;font-weight:bold;}
+      .info-val{font-size:11px;color:var(--hi);text-align:right;max-width:62%;}
+      .dying{position:absolute;inset:0;background:var(--scr);display:flex;flex-direction:column;z-index:10;}
+      .dying-ttl{
+        background:var(--rd);color:#fff;font-family:var(--head);font-size:10px;
+        text-align:center;padding:8px;letter-spacing:4px;animation:blink .7s step-end infinite;
+      }
+      .ds-area{padding:12px;display:flex;flex-direction:column;gap:16px;flex:1;justify-content:center;}
+      .ds-row{display:flex;align-items:center;gap:10px;}
+      .ds-pip{width:20px;height:20px;border:2px solid;border-radius:2px;}
+      .ds-hint{font-size:9px;color:var(--mid);letter-spacing:1px;font-weight:bold;}
+      .splash{
+        position:absolute;inset:0;background:var(--scr);
+        display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;z-index:20;
+      }
+      .sp-ttl{font-family:var(--head);letter-spacing:4px;animation:blink 1s ease-in-out infinite;}
+      .sp-sub{font-size:9px;color:var(--mid);letter-spacing:2px;font-weight:bold;}
+      .intro{
+        position:fixed;inset:0;background:#0a0b0c;display:flex;flex-direction:column;
+        align-items:center;justify-content:center;gap:16px;z-index:999;cursor:pointer;font-family:var(--mono);
+      }
+      .intro-tag{font-size:9px;color:var(--mid);letter-spacing:4px;font-weight:bold;}
+      .intro-name{font-family:var(--head);font-size:28px;color:var(--hi);letter-spacing:8px;}
+      .intro-sub{font-size:9px;color:var(--mid);letter-spacing:2px;font-weight:bold;}
+      .intro-go{font-size:9px;color:var(--hi);letter-spacing:3px;margin-top:14px;animation:blink 1.2s ease-in-out infinite;font-weight:bold;}
+      .rest-overlay{
+        position:absolute;inset:0;background:var(--scr);display:flex;flex-direction:column;z-index:15;
+      }
+      .rest-title{
+        font-family:var(--head);font-size:9px;color:var(--mid);letter-spacing:3px;
+        padding:8px 10px;border-bottom:1px solid var(--bd);flex-shrink:0;
+      }
+      .rest-options{display:flex;flex-direction:column;flex:1;gap:0;}
+      .rest-option{
+        flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+        border-bottom:1px solid var(--bd);cursor:pointer;padding:12px;
+        transition:background .1s;
+      }
+      .rest-option:last-child{border-bottom:none;}
+      .rest-option:active{background:var(--sel);}
+      .rest-option.long{border-left:3px solid var(--gr);}
+      .rest-option.short{border-left:3px solid var(--am);}
+      .rest-option.save{border-left:3px solid #5588cc;}
+      .rest-opt-name{font-family:var(--head);font-size:13px;letter-spacing:3px;}
+      .rest-opt-name.long{color:var(--gr);}
+      .rest-opt-name.short{color:var(--am);}
+      .rest-opt-name.save{color:#5588cc;}
+      .rest-opt-name.restart{color:var(--rd);}
+      .rest-option.restart{border-left:3px solid var(--rd);}
+      .rest-opt-desc{font-size:8px;color:var(--mid);letter-spacing:1px;text-align:center;line-height:1.8;font-weight:bold;}
+      .rest-confirm{
+        display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;gap:12px;padding:16px;
+      }
+      .rest-confirm-title{font-family:var(--head);font-size:11px;letter-spacing:3px;}
+      .rest-confirm-desc{font-size:8px;color:var(--mid);letter-spacing:1px;text-align:center;line-height:2;font-weight:bold;}
+      .rest-hd-prompt{display:flex;flex-direction:column;align-items:center;gap:10px;width:100%;}
+      .rest-hd-label{font-size:9px;color:var(--mid);letter-spacing:2px;font-weight:bold;}
+      .rest-hd-val{font-size:36px;color:var(--hi);}
+      .rest-hd-btns{display:flex;gap:8px;width:100%;}
+      .rest-io-btn{
+        flex:1;padding:8px 6px;border-radius:2px;font-family:var(--mono);font-size:10px;
+        font-weight:bold;letter-spacing:1px;cursor:pointer;text-align:center;
+        -webkit-tap-highlight-color:transparent;
+      }
+      .rest-io-btn.export{background:var(--bg);border:1px solid #5588cc;color:#5588cc;}
+      .rest-io-btn.export:active{background:#0a1020;}
+      .rest-io-btn.import{background:var(--bg);border:1px solid var(--am);color:var(--am);}
+      .rest-io-btn.import:active{background:#1a1000;}
+      .rest-io-msg{font-size:8px;color:var(--gr);letter-spacing:1px;font-weight:bold;text-align:center;}
+      .beast-screen{
+        --scr:#1a0000;--bd2:#3a1010;--hi:#ff9090;--mid:#c06060;--dim:#6a2020;--sel:#2a0808;--bd:#4a1818;
+      }
+      .beast-panel{
+        --pan:#200808;--bd:#5a1a1a;--bd2:#3a1010;--mid:#c06060;--hi:#ff9090;--dim:#6a2020;--bg:#180505;
+      }
+      .bloodlust-screen{
+        --scr:#1a0000;--bd2:#3a1010;--hi:#ffb0b0;--mid:#dd7070;--dim:#7a2525;--sel:#2a0808;--bd:#5a1818;
+      }
+      .bloodlust-panel{
+        --pan:#1a0000;--bd:#5a1a1a;--bd2:#3a1010;--mid:#dd7070;--hi:#ffb0b0;--dim:#7a2525;--bg:#130000;
+        background:#130000 !important;
+      }
+      @keyframes bloodlust-pulse{0%,100%{opacity:1}50%{opacity:0.85}}
+      @keyframes bloodlust-throb{
+        0%  {color:#3a0808;text-shadow:none;}
+        15% {color:#ff1a1a;text-shadow:0 0 8px #ff0000,0 0 20px #cc0000,0 0 40px #880000;}
+        30% {color:#cc1010;text-shadow:0 0 4px #aa0000;}
+        50% {color:#ff2020;text-shadow:0 0 12px #ff0000,0 0 30px #cc0000,0 0 60px #660000;}
+        70% {color:#991010;text-shadow:none;}
+        85% {color:#ff1515;text-shadow:0 0 6px #ff0000,0 0 16px #cc0000;}
+        100%{color:#3a0808;text-shadow:none;}
+      }
+      .bloodlust-screen .screen{animation:bloodlust-pulse 1.8s ease-in-out infinite;}
+      .bloodlust-screen .titlebar{background:#0d0000 !important;border-bottom-color:#4a1010;}
+      .bloodlust-screen .tb-name{animation:bloodlust-throb 1.4s ease-in-out infinite !important;font-size:11px;letter-spacing:4px;}
+      .bloodlust-screen .tb-pg{color:#5a1a1a;}
+      .beast-toggle{
+        display:flex;align-items:center;justify-content:space-between;
+        padding:0 10px;border:1px solid var(--bd2);border-radius:3px;
+        background:var(--bg);cursor:pointer;user-select:none;min-height:44px;
+        -webkit-tap-highlight-color:transparent;touch-action:none;
+      }
+      .beast-toggle.on{border-color:#5a1a1a;background:#1a0505;}
+      .beast-toggle:active{opacity:0.8;}
+      .beast-toggle-lbl{font-size:9px;color:var(--mid);letter-spacing:2px;font-weight:bold;font-family:var(--head);}
+      .beast-toggle-lbl.on{color:#dd4444;}
+      .beast-indicator{
+        width:36px;height:18px;border:1px solid var(--dim);border-radius:2px;
+        background:var(--bg);position:relative;transition:background .2s,border-color .2s;
+      }
+      .beast-indicator.on{background:#6a1010;border-color:#dd4444;}
+      .beast-indicator-dot{
+        position:absolute;top:2px;left:2px;width:12px;height:12px;
+        border-radius:1px;background:var(--dim);transition:left .15s,background .2s;
+      }
+      .beast-indicator.on .beast-indicator-dot{left:20px;background:#ff5050;}
+      .beast-status{font-size:8px;font-weight:bold;letter-spacing:1px;color:var(--dim);}
+      .beast-status.on{color:#dd4444;animation:blink .9s step-end infinite;}
+      .cond-row{
+        display:flex;align-items:center;justify-content:space-between;
+        padding:0 10px;border-bottom:1px solid var(--bd2);flex:1;min-height:0;
+      }
+      .cond-row:last-child{border-bottom:none;}
+      .cond-row.sel{background:var(--sel);border-left:3px solid var(--am);padding-left:7px;}
+      .cond-name{font-size:10px;color:var(--hi);letter-spacing:.5px;}
+      .cond-name.active{color:var(--rd);}
+      .cond-right{display:flex;align-items:center;gap:8px;}
+      .cond-pip{width:14px;height:14px;border:1px solid var(--dim);border-radius:2px;cursor:pointer;flex-shrink:0;}
+      .cond-pip.on{background:var(--rd);border-color:var(--rd);}
+      .cond-exh{display:flex;gap:3px;align-items:center;}
+      .exh-box{
+        width:14px;height:14px;border:1px solid var(--dim);border-radius:2px;
+        cursor:pointer;font-size:7px;display:flex;align-items:center;justify-content:center;
+        color:var(--dim);font-weight:bold;
+      }
+      .exh-box.on{background:var(--rd);border-color:var(--rd);color:#fff;}
+      .cond-badge{font-size:8px;color:var(--rd);font-weight:bold;letter-spacing:1px;}
+      .inv-row{
+        display:flex;align-items:center;gap:6px;padding:0 8px;
+        border-bottom:1px solid var(--bd2);flex-shrink:0;min-height:36px;
+      }
+      .inv-row.sel{background:var(--sel);border-left:3px solid var(--am);padding-left:5px;}
+      .inv-qty{font-size:11px;color:var(--am);font-weight:bold;width:28px;flex-shrink:0;text-align:right;}
+      .inv-x{width:8px;flex-shrink:0;font-size:8px;color:var(--dim);}
+      .inv-name{font-size:10px;color:var(--hi);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+      .inv-del{
+        width:22px;height:22px;border:1px solid var(--bd2);border-radius:2px;
+        background:var(--bg);color:var(--mid);font-size:10px;cursor:pointer;
+        display:flex;align-items:center;justify-content:center;flex-shrink:0;
+      }
+      .inv-del:active{background:var(--rd);color:#fff;border-color:var(--rd);}
+      .inv-add{display:flex;gap:5px;padding:6px 8px;border-top:1px solid var(--bd);flex-shrink:0;align-items:center;}
+      .inv-input{
+        flex:1;background:var(--bg);border:1px solid var(--bd);color:var(--hi);
+        font-family:var(--mono);font-size:10px;padding:5px 8px;border-radius:2px;min-width:0;
+      }
+      .inv-input::placeholder{color:var(--dim);}
+      .inv-input:focus{outline:none;border-color:var(--dim);}
+      .inv-add-btn{
+        flex-shrink:0;padding:5px 10px;background:var(--bg);border:1px solid var(--gr);
+        border-radius:2px;color:var(--gr);font-family:var(--mono);font-size:10px;
+        font-weight:bold;cursor:pointer;letter-spacing:1px;
+      }
+      .inv-add-btn:active{background:#0a1a10;}
+      .inv-list{flex:1;overflow-y:auto;display:flex;flex-direction:column;}
+      .inv-empty{flex:1;display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--dim);letter-spacing:2px;}
+    `;
+
+    // ─────────────────────────────────────────────────────────────
+    //  PAGE COMPONENTS
+    // ─────────────────────────────────────────────────────────────
+    function InfoPage() {
+      return (
+        <div style={{display:"flex",flexDirection:"column",flex:1,overflow:"hidden"}}>
+          {[["NAME",CHAR.name],["CLASS",CHAR.class],["SUBCLASS",CHAR.subclass],
+            ["RACE",CHAR.race],["BG",CHAR.background],["CAMPAIGN",CHAR.campaign],
+          ].map(([k,v])=>(
+            <div key={k} className="info-row">
+              <span className="info-lbl">{k}</span>
+              <span className="info-val">{v}</span>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    function AbilitiesPage({state,sel,edit}) {
+      const labs=["STR","INT","DEX","WIS","CON","CHA","PB","HI"];
+      return (
+        <div className="ab-grid">
+          {labs.map((l,i)=>{
+            const v=state.abilities[i],isHI=i===7,mod=i<6?abilMod(v):null;
+            return (
+              <div key={l} className={`ab-cell${edit&&sel===i?" sel":""}`}>
+                <div className="ab-name">{l}</div>
+                <div className="ab-val">{isHI?(v?"YES":"NO"):v}</div>
+                {mod!==null&&<div className="ab-mod">{sign(mod)}</div>}
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    function SkillsPage({state, scroll}) {
+      const items = [];
+      SKILL_GROUPS.forEach(g => {
+        items.push({type:"hdr", label:g.ability, color:g.color});
+        g.skills.forEach(sk => items.push({type:"sk", sk, color:g.color}));
+      });
+      const VISIBLE = 11;
+      const maxScroll = Math.max(0, items.length - VISIBLE);
+      const clamped = Math.min(scroll, maxScroll);
+      const slice = items.slice(clamped, clamped + VISIBLE);
+      return (
+        <div style={{display:"flex",flexDirection:"column",flex:1,overflow:"hidden"}}>
+          {clamped>0 && <div className="scrl-hint">▲  scroll up</div>}
+          <div style={{display:"flex",flexDirection:"column",flex:1,overflow:"hidden"}}>
+            {slice.map((item,idx)=>{
+              if(item.type==="hdr") return (
+                <div key={"h"+idx} className="sk-group-hdr">
+                  <span className="sk-group-name" style={{color:item.color}}>{item.label}</span>
+                  <span className="sk-group-line"/>
+                </div>
+              );
+              const {sk,color}=item;
+              const val=calcSkill(sk,state.abilities);
+              const profLabel=sk.prof===2?"EXP":sk.prof===1?"PRF":"·";
+              const profColor=sk.prof===2?"#d4a017":sk.prof===1?"#5abf8a":"var(--dim)";
+              return (
+                <div key={"s"+idx} className={`sk-row${sk.isSave?" save-row":""}`} style={{flex:1}}>
+                  <span style={{fontSize:9.5,color:sk.isSave?color:"var(--hi)"}}>
+                    {sk.isSave&&<span style={{marginRight:5,fontSize:8,color}}>▸</span>}
+                    {sk.name}
+                  </span>
+                  <span className="sk-right">
+                    <span className="sk-prof" style={{color:profColor}}>{profLabel}</span>
+                    <span className="sk-val">{sign(val)}</span>
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          {clamped<maxScroll && <div className="scrl-hint">▼  scroll down</div>}
+        </div>
+      );
+    }
+
+    function CombatPage({state,sel,edit}) {
+      const{hp,maxHp,charLevel,ac,initMod,speed,pasPerc}=state;
+      const pct=maxHp>0?hp/maxHp:0;
+      const hpCls=pct<=0.25?"low":pct<=0.5?"mid":"";
+      const rows=[
+        ["LEVEL",charLevel],["HP",`${hp} / ${maxHp}`],["MAX HP",maxHp],
+        ["AC",ac],["INIT",sign(initMod)],["SPEED",`${speed} ft`],["PASS PER",pasPerc],
+      ];
+      return (
+        <div style={{display:"flex",flexDirection:"column",flex:1,overflow:"hidden"}}>
+          <div className="hp-wrap">
+            <div className="hp-lbl"><span>HIT POINTS</span><span>{hp} / {maxHp}</span></div>
+            <div className="hp-outer"><div className={`hp-inner ${hpCls}`} style={{width:`${Math.max(0,pct*100)}%`}}/></div>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",flex:1,overflow:"hidden"}}>
+            {rows.map(([label,val],i)=>(
+              <div key={label} className={`row${edit&&sel===i?" sel":""}`}>
+                <span className="lbl">{label}</span>
+                <span className="val">{val}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    function SpellcastingPage({state}) {
+      const chaMod=abilMod(state.abilities[5]),pb=state.abilities[6];
+      return (
+        <div style={{display:"flex",flexDirection:"column",flex:1,overflow:"hidden"}}>
+          <div className="sc-note">AUTO-CALC · CHA + PB · READ ONLY</div>
+          {[["SPELL SAVE DC",8+pb+chaMod,false],["CASTING MOD",chaMod,true],["SPELL ATK BONUS",pb+chaMod,true]
+          ].map(([l,v,p])=>(
+            <div key={l} className="sc-row">
+              <div className="sc-lbl">{l}</div>
+              <div className="sc-val">{p?sign(v):v}</div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    function SpellSlotsPage({state,sel,edit}) {
+      const unlocked=unlockedSlots(state.charLevel);
+      return (
+        <div style={{display:"flex",flexDirection:"column",flex:1,overflow:"hidden"}}>
+          {Array.from({length:unlocked},(_,i)=>{
+            const mx=slotMax(state.charLevel,i),rem=mx-state.slotUsed[i];
+            return (
+              <div key={i} className={`sp-row${edit&&sel===i?" sel":""}`}>
+                <span className="sp-lbl">LVL {i+1}</span>
+                <span className="sp-pips">
+                  {Array.from({length:mx},(_,p)=><span key={p} className={`sp-pip${p<rem?" on":""}`}/>)}
+                </span>
+                <span className="sp-frac">{rem}/{mx}</span>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    function FeaturesPage({state, sel, edit, onBeastToggle}) {
+      const pb  = state.abilities[6];
+      const bardicMax = 4, bardicRem = bardicMax - state.bardicUsed;
+      const songMax   = pb,  songRem  = songMax  - (state.encouragingSongUsed||0);
+      return (
+        <div style={{display:"flex",flexDirection:"column",flex:1,overflow:"hidden",gap:0}}>
+          <div style={{display:"flex",flexDirection:"row",alignItems:"center",justifyContent:"space-between",padding:"6px 10px",borderBottom:"1px solid var(--bd2)",flexShrink:0}}>
+            <div className="b-lbl" style={{fontSize:8}}>BARDIC INSP.</div>
+            <div style={{display:"flex",gap:5,alignItems:"center"}}>
+              {Array.from({length:bardicMax},(_,i)=>(
+                <div key={i} className={`b-pip${i<bardicRem?" on":""}`}
+                  style={{width:18,height:18,borderColor:edit&&sel===0?"var(--am)":undefined}}/>
+              ))}
+            </div>
+            <div style={{fontSize:12,color:edit&&sel===0?"var(--am)":"var(--hi)",width:28,textAlign:"right",fontWeight:"bold"}}>{bardicRem}/{bardicMax}</div>
+          </div>
+          <div style={{display:"flex",flexDirection:"row",alignItems:"center",justifyContent:"space-between",padding:"6px 10px",borderBottom:"1px solid var(--bd2)",flexShrink:0}}>
+            <div className="b-lbl" style={{fontSize:8}}>ENC. SONG</div>
+            <div style={{display:"flex",gap:5,alignItems:"center"}}>
+              {Array.from({length:songMax},(_,i)=>(
+                <div key={i} className={`b-pip${i<songRem?" on":""}`}
+                  style={{width:18,height:18,borderColor:edit&&sel===1?"var(--am)":undefined}}/>
+              ))}
+            </div>
+            <div style={{fontSize:12,color:edit&&sel===1?"var(--am)":"var(--hi)",width:28,textAlign:"right",fontWeight:"bold"}}>{songRem}/{songMax}</div>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",flex:state.beastMode?2:1,gap:8,padding:"8px 0",transition:"flex .2s"}}>
+            <div className="b-lbl" style={state.beastMode?{color:"#dd4444",letterSpacing:3}:{}}>BEAST MODE</div>
+            <div className={`beast-toggle${state.beastMode?" on":""}`} style={{width:"80%"}} onPointerDown={e=>{e.preventDefault();onBeastToggle();}}>
+              <span className={`beast-toggle-lbl${state.beastMode?" on":""}`}>{state.beastMode?"WEREWOLF":"HUMAN"}</span>
+              <span className={`beast-indicator${state.beastMode?" on":""}`}>
+                <span className="beast-indicator-dot"/>
+              </span>
+            </div>
+            {state.beastMode&&(
+              <>
+                <div className="beast-status on">{(state.hp/state.maxHp)<0.5?"⚠ BLOOD LUST":"TRANSFORMED"}</div>
+                <div style={{width:"90%",borderTop:"1px solid #3a1010",marginTop:4,paddingTop:8,display:"flex",flexDirection:"column",gap:5}}>
+                  {[
+                    {name:"BITE", hit:"+4", dmg:"1d8+2", note:"piercing"},
+                    {name:"CLAW", hit:"+4", dmg:"2d4+2", note:"slashing"},
+                  ].map(atk=>(
+                    <div key={atk.name} style={{
+                      display:"flex",alignItems:"center",justifyContent:"space-between",
+                      padding:"4px 8px",border:"1px solid #4a1010",borderRadius:2,
+                      background:"#1a0505",borderLeft:"3px solid #cc2222",
+                    }}>
+                      <span style={{fontSize:9,color:"#cc4444",fontFamily:"var(--head)",letterSpacing:2,width:40}}>{atk.name}</span>
+                      <span style={{fontSize:10,color:"#ffaaaa",fontWeight:"bold"}}>{atk.hit}</span>
+                      <span style={{fontSize:11,color:"var(--hi)",fontWeight:"bold"}}>{atk.dmg}</span>
+                      <span style={{fontSize:8,color:"#884444",letterSpacing:1}}>{atk.note}</span>
+                    </div>
+                  ))}
+                  <div style={{fontSize:8,color:"#663333",textAlign:"center",letterSpacing:1,fontWeight:"bold",marginTop:2}}>
+                    AC +1 · SPD +10ft · ACTIVE
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    function CurrencyPage({state,sel,edit}) {
+      const labs=["PP","GP","SP","CP"],cols=["#9999ee","#ddbb33","#aaaaaa","#cc8844"];
+      return (
+        <div className="cur-grid">
+          {labs.map((l,i)=>(
+            <div key={l} className={`cur-cell${edit&&sel===i?" sel":""}`}>
+              <div className="cur-name" style={{color:edit&&sel===i?"var(--hi)":cols[i]}}>{l}</div>
+              <div className="cur-val">{state.currency[i]}</div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    function ConditionsPage({state, sel, edit}) {
+      const exhLevel = state.conditions["Exhaustion"] || 0;
+      return (
+        <div style={{display:"flex",flexDirection:"column",flex:1,overflow:"hidden"}}>
+          <div style={{flex:1,overflowY:"auto",display:"flex",flexDirection:"column"}}>
+            {CONDITIONS_LIST.map((name, i) => {
+              const isExh = name === "Exhaustion";
+              const active = isExh ? exhLevel > 0 : !!state.conditions[name];
+              const isSelected = edit && sel === i;
+              return (
+                <div key={name} className={`cond-row${isSelected?" sel":""}`}>
+                  <span className={`cond-name${active?" active":""}`}>{name}</span>
+                  <span className="cond-right">
+                    {isExh ? (
+                      <span className="cond-exh">
+                        {[1,2,3,4,5,6].map(n => (
+                          <span key={n} className={`exh-box${exhLevel>=n?" on":""}`}>{n}</span>
+                        ))}
+                      </span>
+                    ) : (
+                      <span className={`cond-pip${active?" on":""}`}/>
+                    )}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    function InventoryPage({state, sel, edit, onAdd, onDelete}) {
+      const inputRef = useRef(null);
+      const handleAdd = () => {
+        const n = inputRef.current ? inputRef.current.value.trim() : "";
+        if(!n) return;
+        onAdd(n, 1);
+        if(inputRef.current) inputRef.current.value = "";
+        inputRef.current && inputRef.current.focus();
+      };
+      return (
+        <div style={{display:"flex",flexDirection:"column",flex:1,overflow:"hidden"}}>
+          <div className="inv-list">
+            {state.inventory.length===0
+              ? <div className="inv-empty">EMPTY — ADD ITEMS BELOW</div>
+              : state.inventory.map((item,i) => (
+                <div key={i} className={`inv-row${edit&&sel===i?" sel":""}`}>
+                  <span className="inv-qty">{item.qty}</span>
+                  <span className="inv-x">×</span>
+                  <span className="inv-name">{item.name}</span>
+                  <span className="inv-del" onPointerDown={e=>{e.preventDefault();onDelete(i);}}>✕</span>
+                </div>
+              ))
+            }
+          </div>
+          <div className="inv-add">
+            <input
+              ref={inputRef}
+              className="inv-input"
+              type="text"
+              defaultValue=""
+              placeholder="item name…"
+              onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();handleAdd();}}}
+            />
+            <button className="inv-add-btn" onClick={handleAdd}>ADD</button>
+          </div>
+        </div>
+      );
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    //  REST OVERLAY
+    // ─────────────────────────────────────────────────────────────
+    function RestOverlay({state, onClose, onLongRest, onShortRest, onLoad, onRestart}) {
+      const [sub,         setSub]        = useState("pick");
+      const [hdGain,      setHdGain]     = useState(0);
+      const [msg,         setMsg]        = useState("");
+      const [importText,  setImportText] = useState("");
+      const [copied,      setCopied]     = useState(false);
+
+      const conMod  = Math.floor((state.abilities[4]-10)/2);
+      const hdMax   = state.charLevel + (state.bonusHitDice||0);
+      const hdAvail = hdMax - (state.hitDiceUsed||0);
+
+      const doLongRest  = () => { onLongRest(); onClose(); };
+      const doShortRest = () => { onShortRest(hdGain); onClose(); };
+
+      const exportStr = JSON.stringify(state);
+      const doCopy = () => {
+        navigator.clipboard.writeText(exportStr).then(()=>{
+          setCopied(true); setTimeout(()=>setCopied(false), 2500);
+        }).catch(()=>{
+          const el = document.getElementById("malto-export-ta");
+          if(el){el.select();document.execCommand("copy");setCopied(true);setTimeout(()=>setCopied(false),2500);}
+        });
+      };
+      const doImportText = () => {
+        try {
+          const parsed = JSON.parse(importText.trim());
+          onLoad(parsed);
+          setMsg("✓ SAVE LOADED"); setTimeout(()=>{ setMsg(""); onClose(); }, 1500);
+        } catch { setMsg("✗ INVALID DATA"); setTimeout(()=>setMsg(""), 3000); }
+      };
+
+      return (
+        <div className="rest-overlay" style={sub==="saveload"?{overflowY:"auto"}:{}}>
+          <div className="rest-title">
+            {sub==="pick"?"REST":sub==="long-confirm"?"LONG REST":sub==="short-hd"?"SHORT REST — HIT DICE":sub==="restart-confirm"?"RESTART SESSION":"SAVE / LOAD"}
+          </div>
+
+          {sub==="pick" && (
+            <div className="rest-options">
+              <div className="rest-option long" onPointerDown={e=>{e.preventDefault();setSub("long-confirm");}}>
+                <div className="rest-opt-name long">LONG REST</div>
+                <div className="rest-opt-desc">HP → MAX  ·  ALL SPELL SLOTS  ·  BARDIC INSPIRATION<br/>HIT DICE RESTORED (HALF)</div>
+              </div>
+              <div className="rest-option short" onPointerDown={e=>{e.preventDefault();setSub("short-hd");}}>
+                <div className="rest-opt-name short">SHORT REST</div>
+                <div className="rest-opt-desc">
+                  SPEND HIT DICE TO RECOVER HP{state.charLevel>=5?" · BARDIC RESTORED":""}<br/>
+                  HIT DICE AVAILABLE: {hdAvail}/{hdMax}
+                </div>
+              </div>
+              <div className="rest-option save" onPointerDown={e=>{e.preventDefault();setSub("saveload");}}>
+                <div className="rest-opt-name save">SAVE / LOAD</div>
+                <div className="rest-opt-desc">EXPORT SAVE DATA  ·  IMPORT FROM CLIPBOARD</div>
+              </div>
+              <div className="rest-option restart" onPointerDown={e=>{e.preventDefault();setSub("restart-confirm");}}>
+                <div className="rest-opt-name restart">RESTART SESSION</div>
+                <div className="rest-opt-desc">NEW SESSION · RETAINS STATS, ITEMS & MONEY</div>
+              </div>
+            </div>
+          )}
+
+          {sub==="long-confirm" && (
+            <div className="rest-confirm">
+              <div className="rest-confirm-title" style={{color:"var(--gr)"}}>LONG REST</div>
+              <div className="rest-confirm-desc">
+                HP RESTORED TO {state.maxHp}<br/>
+                ALL SPELL SLOTS RESTORED<br/>
+                BARDIC INSPIRATION RESTORED<br/>
+                HIT DICE: {Math.min(hdMax,(hdAvail+Math.max(1,Math.floor(hdMax/2))))}/{hdMax} AFTER REST
+              </div>
+              <div style={{display:"flex",gap:8,width:"100%",marginTop:8}}>
+                <Btn label="✗ CANCEL" cls="danger" onClick={()=>setSub("pick")}/>
+                <Btn label="✓ REST"   cls="ok"     onClick={doLongRest}/>
+              </div>
+            </div>
+          )}
+
+          {sub==="short-hd" && (
+            <div className="rest-confirm">
+              <div className="rest-confirm-title" style={{color:"var(--am)"}}>SHORT REST</div>
+              <div className="rest-hd-prompt">
+                <div className="rest-hd-label">HP TO RECOVER (ROLL d8 + {conMod>=0?"+":""}CON)</div>
+                <div className="rest-hd-val">{hdGain>0?`+${hdGain}`:"—"}</div>
+                <div className="rest-hd-btns">
+                  <HoldBtn label="▼  DEC" onFire={()=>setHdGain(g=>Math.max(0,g-1))}/>
+                  <HoldBtn label="▲  INC" onFire={()=>setHdGain(g=>Math.min(state.maxHp-state.hp,g+1))}/>
+                </div>
+                <div style={{fontSize:8,color:"var(--mid)",letterSpacing:1,fontWeight:"bold",textAlign:"center"}}>
+                  DICE AVAILABLE: {hdAvail}/{hdMax}
+                  {state.charLevel>=5 && "\nBARDIC INSPIRATION WILL BE RESTORED"}
+                </div>
+              </div>
+              <div style={{display:"flex",gap:8,width:"100%",marginTop:8}}>
+                <Btn label="✗ CANCEL" cls="danger" onClick={()=>setSub("pick")}/>
+                <Btn label={hdAvail<=0?"NO DICE":"✓ REST"} cls="ok" off={hdAvail<=0} onClick={doShortRest}/>
+              </div>
+            </div>
+          )}
+
+          {sub==="restart-confirm" && (
+            <div className="rest-confirm">
+              <div className="rest-confirm-title" style={{color:"var(--rd)"}}>RESTART SESSION</div>
+              <div className="rest-confirm-desc">
+                HP → MAX  ·  ALL SLOTS RESTORED<br/>
+                CONDITIONS CLEARED  ·  BEAST MODE OFF<br/>
+                HIT DICE FULLY RESTORED<br/>
+                <br/>
+                STATS · ITEMS · MONEY RETAINED
+              </div>
+              <div style={{display:"flex",gap:8,width:"100%",marginTop:8}}>
+                <Btn label="✗ CANCEL" cls="danger" onClick={()=>setSub("pick")}/>
+                <Btn label="✓ RESTART" cls="ok" onClick={()=>{ onRestart(); onClose(); }}/>
+              </div>
+            </div>
+          )}
+
+          {sub==="saveload" && (
+            <div className="rest-confirm" style={{justifyContent:"flex-start",paddingTop:12,gap:8,overflowY:"auto"}}>
+              <div style={{fontSize:8,color:"#5588cc",letterSpacing:2,fontWeight:"bold",fontFamily:"var(--head)",alignSelf:"flex-start"}}>EXPORT — COPY THIS TEXT</div>
+              <textarea
+                id="malto-export-ta"
+                readOnly
+                value={exportStr}
+                style={{
+                  width:"100%",height:60,background:"var(--bg)",border:"1px solid #334466",
+                  color:"#7799bb",fontFamily:"var(--mono)",fontSize:8,padding:6,resize:"none",
+                  borderRadius:2,lineHeight:1.4,
+                }}
+              />
+              <button className="rest-io-btn export" onClick={doCopy} style={{width:"100%"}}>
+                {copied ? "✓ COPIED!" : "⎘ COPY TO CLIPBOARD"}
+              </button>
+              <div style={{height:1,background:"var(--bd2)",width:"100%",margin:"4px 0"}}/>
+              <div style={{fontSize:8,color:"var(--am)",letterSpacing:2,fontWeight:"bold",fontFamily:"var(--head)",alignSelf:"flex-start"}}>IMPORT — PASTE SAVE TEXT</div>
+              <textarea
+                value={importText}
+                onChange={e=>setImportText(e.target.value)}
+                placeholder="Paste your save data here…"
+                style={{
+                  width:"100%",height:60,background:"var(--bg)",border:"1px solid var(--bd)",
+                  color:"var(--hi)",fontFamily:"var(--mono)",fontSize:8,padding:6,resize:"none",
+                  borderRadius:2,lineHeight:1.4,
+                }}
+              />
+              <button className="rest-io-btn import" onClick={doImportText} style={{width:"100%"}}>↑ LOAD SAVE</button>
+              {msg && <div className="rest-io-msg">{msg}</div>}
+              <Btn label="✗ BACK" cls="danger" onClick={()=>setSub("pick")}/>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function DyingScreen({ds,df}) {
+      return (
+        <div className="dying">
+          <div className="dying-ttl">⚠  YOU ARE DYING  ⚠</div>
+          <div className="ds-area">
+            <div style={{fontSize:9,color:"var(--mid)",letterSpacing:2,fontWeight:"bold"}}>DEATH SAVING THROWS</div>
+            {[["SUCC","var(--gr)",ds],["FAIL","var(--rd)",df]].map(([lbl,col,count])=>(
+              <div key={lbl} className="ds-row">
+                <span style={{width:42,fontSize:10,color:col,fontWeight:"bold"}}>{lbl}</span>
+                <div style={{display:"flex",gap:8}}>
+                  {Array.from({length:3},(_,i)=>(
+                    <div key={i} className="ds-pip" style={{borderColor:col,background:i<count?col:"transparent"}}/>
+                  ))}
+                </div>
+                <span style={{marginLeft:6,fontSize:10,color:col,fontWeight:"bold"}}>{count}/3</span>
+              </div>
+            ))}
+            <div className="ds-hint">USE LEFT PANEL BUTTONS</div>
+          </div>
+        </div>
+      );
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    //  APP
+    // ─────────────────────────────────────────────────────────────
+    function App() {
+      const [state, setRaw]    = useState(loadState);
+      const [page,  setPage]   = useState(0);
+      const [edit,  setEdit]   = useState(false);
+      const [sel,   setSel]    = useState(0);
+      const [skSc,  setSkSc]   = useState(0);
+      const [snap,  setSnap]   = useState(null);
+      const [dying, setDying]  = useState(false);
+      const [ds,    setDs]     = useState(0);
+      const [df,    setDf]     = useState(0);
+      const [splash,setSplash] = useState(null);
+      const [intro, setIntro]  = useState(true);
+      const [resting,setResting] = useState(false);
+
+      const st = useCallback((upd)=>{
+        setRaw(prev=>{const next=typeof upd==="function"?upd(prev):upd;saveState(next);return next;});
+      },[]);
+
+      useEffect(()=>{
+        if(state.hp<=0&&!dying&&!splash){setDying(true);setDs(0);setDf(0);setEdit(false);setResting(false);}
+      },[state.hp]);
+
+      const activeConditions = Object.keys(state.conditions||{}).length;
+      const isRO   = READ_ONLY.has(page);
+      const maxSel = useCallback(()=>fieldCount(page,state.charLevel,state.inventory.length),[page,state.charLevel,state.inventory.length]);
+
+      const goPage = useCallback((dir)=>{
+        setPage(p=>(p+dir+PAGES.length)%PAGES.length);
+        setSel(0);setSkSc(0);setEdit(false);
+      },[]);
+
+      const navUp = useCallback(()=>{
+        if(page===2) setSkSc(s=>Math.max(0,s-1));
+        else setSel(s=>Math.max(0,s-1));
+      },[page]);
+
+      const navDown = useCallback(()=>{
+        if(page===2) setSkSc(s=>s+1);
+        else setSel(s=>Math.min(s+1,maxSel()-1));
+      },[page,maxSel]);
+
+      const enterEdit   = ()=>{ if(isRO)return; setSnap(JSON.parse(JSON.stringify(state))); setEdit(true); };
+      const cancelEdit  = ()=>{ if(snap)st(snap); setEdit(false); };
+      const confirmEdit = ()=>setEdit(false);
+
+      const doLongRest = ()=>st(s=>{
+        const hdMax = s.charLevel + (s.bonusHitDice||0);
+        return {
+          ...s, hp:s.maxHp, slotUsed:[0,0,0,0,0,0,0,0,0], bardicUsed:0, encouragingSongUsed:0,
+          hitDiceUsed: Math.max(0, (s.hitDiceUsed||0) - Math.max(1,Math.floor(hdMax/2))),
+        };
+      });
+
+      const doShortRest = (hdGain)=>st(s=>({
+        ...s,
+        hp: Math.min(s.maxHp, s.hp + hdGain),
+        bardicUsed: s.charLevel>=5 ? 0 : s.bardicUsed,
+        hitDiceUsed: Math.min(s.charLevel+(s.bonusHitDice||0), (s.hitDiceUsed||0) + (hdGain>0?1:0)),
+      }));
+
+      const toggleCondition = (name, exhLevel)=>st(s=>{
+        const c={...s.conditions};
+        if(name==="Exhaustion"){
+          c["Exhaustion"] = (c["Exhaustion"]||0)===exhLevel ? exhLevel-1 : exhLevel;
+          if(c["Exhaustion"]<=0) delete c["Exhaustion"];
+        } else {
+          if(c[name]) delete c[name]; else c[name]=true;
+        }
+        return{...s,conditions:c};
+      });
+
+      const addItem    = (name,qty)=>st(s=>({...s,inventory:[...s.inventory,{name,qty}]}));
+      const deleteItem = (i)=>st(s=>({...s,inventory:s.inventory.filter((_,idx)=>idx!==i)}));
+
+      const doRestart = ()=>st(s=>{
+        const acBase    = s.beastMode ? s.ac - 1    : s.ac;
+        const speedBase = s.beastMode ? s.speed - 10 : s.speed;
+        return {
+          ...s,
+          hp: s.maxHp,
+          slotUsed: [0,0,0,0,0,0,0,0,0],
+          bardicUsed: 0,
+          encouragingSongUsed: 0,
+          hitDiceUsed: 0,
+          conditions: {},
+          beastMode: false,
+          ac: acBase,
+          speed: speedBase,
+        };
+      });
+
+      const toggleBeastMode = ()=>st(s=>({
+        ...s,
+        beastMode: !s.beastMode,
+        ac:    !s.beastMode ? s.ac + 1    : s.ac - 1,
+        speed: !s.beastMode ? s.speed + 10 : s.speed - 10,
+      }));
+
+      const changeItemQty = (i,delta)=>st(s=>{
+        const inv=[...s.inventory];
+        inv[i]={...inv[i],qty:Math.max(0,inv[i].qty+delta)};
+        if(inv[i].qty===0) inv.splice(i,1);
+        return{...s,inventory:inv};
+      });
+
+      const adjRef = useRef(null);
+      adjRef.current = (delta)=>{
+        if(!edit)return;
+        st(s=>{
+          const ns=JSON.parse(JSON.stringify(s));
+          switch(page){
+            case 1:
+              if(sel===7)ns.abilities[7]=ns.abilities[7]?0:1;
+              else if(sel===6)ns.abilities[6]=Math.max(2,Math.min(6,ns.abilities[6]+delta));
+              else ns.abilities[sel]=Math.max(1,Math.min(30,ns.abilities[sel]+delta));
+              break;
+            case 3:{
+              const keys=["charLevel","hp","maxHp","ac","initMod","speed","pasPerc"];
+              const mins=[1,0,1,0,-10,0,1],maxes=[20,ns.maxHp,99,30,10,120,30];
+              const k=keys[sel];
+              if(k){ns[k]=Math.max(mins[sel],Math.min(maxes[sel],ns[k]+delta));if(k==="maxHp"&&ns.hp>ns.maxHp)ns.hp=ns.maxHp;}
+              break;
+            }
+            case 5:{const mx=slotMax(ns.charLevel,sel);ns.slotUsed[sel]=Math.max(0,Math.min(mx,ns.slotUsed[sel]-delta));break;}
+            case 6:{
+              const pb=ns.abilities[6];
+              if(sel===0) ns.bardicUsed=Math.max(0,Math.min(4,ns.bardicUsed-delta));
+              else if(sel===1) ns.encouragingSongUsed=Math.max(0,Math.min(pb,(ns.encouragingSongUsed||0)-delta));
+              break;
+            }
+            case 7:{
+              const name=CONDITIONS_LIST[sel];
+              if(name==="Exhaustion"){
+                const cur=ns.conditions["Exhaustion"]||0;
+                const next=Math.max(0,Math.min(6,cur+delta));
+                if(next===0) delete ns.conditions["Exhaustion"];
+                else ns.conditions["Exhaustion"]=next;
+              } else {
+                if(delta>0) ns.conditions[name]=true;
+                else delete ns.conditions[name];
+              }
+              break;
+            }
+            case 8:{
+              if(ns.inventory[sel]){
+                ns.inventory[sel]={...ns.inventory[sel],qty:Math.max(0,ns.inventory[sel].qty+delta)};
+                if(ns.inventory[sel].qty===0) ns.inventory.splice(sel,1);
+              }
+              break;
+            }
+            case 9:ns.currency[sel]=Math.max(0,Math.min(99999,ns.currency[sel]+delta));break;
+          }
+          return ns;
+        });
+      };
+
+      const adjUp   = useCallback(()=>adjRef.current(1),  []);
+      const adjDown = useCallback(()=>adjRef.current(-1), []);
+
+      const onSucc = ()=>{ const n=ds+1; setDs(n); if(n>=3)setSplash("wind"); };
+      const onFail = ()=>{ const n=df+1; setDf(n); if(n>=3)setSplash("dead"); };
+
+      const dismissSplash = ()=>{
+        if(splash==="wind"){st(s=>({...s,hp:1}));setDying(false);setDs(0);setDf(0);setSplash(null);setPage(3);}
+        if(splash==="dead"){st(s=>({...s,hp:s.maxHp,slotUsed:[0,0,0,0,0,0,0,0,0],bardicUsed:0}));setDying(false);setDs(0);setDf(0);setSplash(null);setPage(0);}
+      };
+
+      const renderPage = ()=>{
+        if(dying&&!splash) return <DyingScreen ds={ds} df={df}/>;
+        if(splash==="wind") return (
+          <div className="splash">
+            <div className="sp-ttl" style={{color:"var(--hi)",fontSize:16}}>SECOND WIND</div>
+            <div className="sp-sub">HP RESTORED TO 1</div>
+            <div className="sp-sub" style={{marginTop:10}}>TAP [CONTINUE] →</div>
+          </div>
+        );
+        if(splash==="dead") return (
+          <div className="splash">
+            <div className="sp-ttl" style={{color:"var(--rd)",fontSize:20}}>YOU ARE DEAD</div>
+            <div className="sp-sub" style={{marginTop:10}}>TAP [CONTINUE] →</div>
+          </div>
+        );
+        return (
+          <>
+            {resting && (
+              <RestOverlay
+                state={state}
+                onClose={()=>setResting(false)}
+                onLongRest={doLongRest}
+                onShortRest={doShortRest}
+                onRestart={()=>{ doRestart(); setResting(false); setPage(0); setEdit(false); setSel(0); setDying(false); setDs(0); setDf(0); setSplash(null); setIntro(true); }}
+                onLoad={(saved)=>{
+                  try {
+                    const next = {...DEFAULT_STATE, ...saved,
+                      inventory: Array.isArray(saved.inventory) ? saved.inventory : DEFAULT_STATE.inventory,
+                      conditions: saved.conditions && typeof saved.conditions==="object" ? saved.conditions : DEFAULT_STATE.conditions,
+                      slotUsed: Array.isArray(saved.slotUsed) ? saved.slotUsed : DEFAULT_STATE.slotUsed,
+                      abilities: Array.isArray(saved.abilities) ? saved.abilities : DEFAULT_STATE.abilities,
+                      currency: Array.isArray(saved.currency) ? saved.currency : DEFAULT_STATE.currency,
+                    };
+                    st(next);
+                  } catch(e) {}
+                }}
+              />
+            )}
+            {(()=>{switch(page){
+              case 0: return <InfoPage/>;
+              case 1: return <AbilitiesPage state={state} sel={sel} edit={edit}/>;
+              case 2: return <SkillsPage state={state} scroll={skSc}/>;
+              case 3: return <CombatPage state={state} sel={sel} edit={edit}/>;
+              case 4: return <SpellcastingPage state={state}/>;
+              case 5: return <SpellSlotsPage state={state} sel={sel} edit={edit}/>;
+              case 6: return <FeaturesPage state={state} sel={sel} edit={edit} onBeastToggle={toggleBeastMode}/>;
+              case 7: return <ConditionsPage state={state} sel={sel} edit={edit}/>;
+              case 8: return <InventoryPage state={state} sel={sel} edit={edit} onAdd={addItem} onDelete={deleteItem}/>;
+              case 9: return <CurrencyPage state={state} sel={sel} edit={edit}/>;
+            }})()}
+          </>
+        );
+      };
+
+      const LeftPanel = ()=>{
+        if(dying&&!splash) return(<>
+          <div className="side-lbl">DEATH SAVES</div>
+          <Btn label="✓  YASS" cls="ok"     onClick={onSucc}/>
+          <Btn label="✗  NOOO" cls="danger" onClick={onFail}/>
+          <div className="gap"/>
+          <div className="side-info">SUCC {ds}/3<br/>FAIL {df}/3</div>
+        </>);
+        if(splash) return(<>
+          <div className="side-lbl">ACTION</div>
+          <div className="gap"/>
+          <Btn label="CONTINUE" cls="ok" onClick={dismissSplash}/>
+        </>);
+        if(edit) return(<>
+          <div className="side-lbl">ADJUST</div>
+          <HoldBtn label="▲  INC"  onFire={adjUp}/>
+          <HoldBtn label="▼  DEC"  onFire={adjDown}/>
+          <hr className="hr"/>
+          <div className="side-lbl">FIELD</div>
+          <HoldBtn label="▲  PREV" onFire={navUp}/>
+          <HoldBtn label="▼  NEXT" onFire={navDown}/>
+          <div className="gap"/>
+          <div className="side-info">FIELD {sel+1}/{maxSel()||1}</div>
+        </>);
+        return(<>
+          <div className="side-lbl">NAVIGATE</div>
+          <HoldBtn label="PG UP" onFire={()=>goPage(-1)}/>
+          <HoldBtn label="PG DN" onFire={()=>goPage(1)}/>
+          <hr className="hr"/>
+          <HoldBtn label="▲  UP" onFire={navUp}/>
+          <HoldBtn label="▼  DN" onFire={navDown}/>
+          <div className="gap"/>
+        </>);
+      };
+
+      const RightPanel = ()=>{
+        if(dying&&!splash) return(<>
+          <div className="side-lbl">STATUS</div>
+          <div className="gap"/>
+          <div className="side-info">3 SUCC<br/>→ STABLE<br/><br/>3 FAIL<br/>→ DEAD</div>
+        </>);
+        if(splash) return(<><div className="side-lbl">STATUS</div><div className="gap"/></>);
+        if(edit) return(<>
+          <div className="side-lbl">CONFIRM</div>
+          <Btn label="✓  SAVE"   cls="ok"     onClick={confirmEdit}/>
+          <Btn label="✗  CANCEL" cls="danger" onClick={cancelEdit}/>
+          <div className="gap"/>
+          <div className="side-info">{PAGES[page]}<br/>{page+1}/{PAGES.length}</div>
+        </>);
+        return(<>
+          <div className="side-lbl">ACTION</div>
+          <Btn label="EDIT" cls={isRO?"":"hi"} off={isRO} onClick={enterEdit}/>
+          <Btn label="HOME" onClick={()=>{setPage(0);setEdit(false);setSel(0);setResting(false);}}/>
+          <div className="gap"/>
+          <div className="side-info">PAGE {page+1}<br/>OF {PAGES.length}</div>
+          <hr className="hr"/>
+          <Btn label={resting?"CLOSE":"REST"} cls="warn" onClick={()=>{setResting(r=>!r);setEdit(false);}}/>
+        </>);
+      };
+
+      const beastActive = state.beastMode;
+      const bloodLust   = beastActive && (state.hp / state.maxHp) < 0.5;
+      const screenTheme = bloodLust ? "bloodlust-screen" : beastActive ? "beast-screen" : "";
+      const panelTheme  = bloodLust ? "bloodlust-panel"  : "";
+
+      return (
+        <>
+          <style>{CSS}</style>
+          {intro&&(
+            <div className="intro" onClick={()=>setIntro(false)}>
+              <div className="intro-tag">WELCOME TO</div>
+              <div className="intro-name">MYSHEM</div>
+              <div style={{width:180,height:1,background:"var(--bd)"}}/>
+              <div className="intro-sub">MALTO DEXTRIN  ·  BARD LVL {state.charLevel}</div>
+              <div className="intro-go">[ TAP TO BEGIN ]</div>
+            </div>
+          )}
+          <div className="root">
+            <div className="device">
+              <div className={`side L${panelTheme?" "+panelTheme:""}`}>{LeftPanel()}</div>
+              <div className={`screen-area${screenTheme?" "+screenTheme:""}`}>
+                <div className="titlebar">
+                  <div className="tb-name">{resting?"REST":PAGES[page]}</div>
+                  {edit           &&<div className="tb-badge tb-edit">EDIT</div>}
+                  {dying&&!splash &&<div className="tb-badge tb-dying">DYING</div>}
+                  {activeConditions>0&&!dying&&!edit&&<div className="tb-badge" style={{color:"var(--rd)",borderColor:"var(--rd)"}}>{activeConditions} COND</div>}
+                  <div className="tb-pg">{page+1} / {PAGES.length}</div>
+                </div>
+                <div className="screen">
+                  <div className="screen-inner">{renderPage()}</div>
+                </div>
+              </div>
+              <div className={`side R${panelTheme?" "+panelTheme:""}`}>{RightPanel()}</div>
+            </div>
+          </div>
+        </>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+  </script>
+</body>
+</html>

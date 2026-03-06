@@ -11,4 +11,5 @@ Refer to USER_MANUAL for detailed walkthrough.
 ## How To Adapt For Your Character
 Refer to ADAPTATION_GUIDE 
 
-If you want to ask anything or just to say hi, poke me at instagram.com/christiananggoro
+If you want to ask anything or just to say hi, poke me at 
+instagram.com/christiananggoro/

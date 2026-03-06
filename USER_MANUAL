@@ -1,0 +1,354 @@
+# Malto Dextrin — D&D 5e Stat Tracker
+## User Manual
+
+> A mobile-friendly D&D 5e character tracker that runs entirely in your browser.  
+> No app store. No login. No internet required after loading.
+
+---
+
+## Table of Contents
+1. [Getting Started](#getting-started)
+2. [The Interface](#the-interface)
+3. [Navigating Pages](#navigating-pages)
+4. [Edit Mode](#edit-mode)
+5. [Pages Reference](#pages-reference)
+6. [The REST Menu](#the-rest-menu)
+7. [Dying & Death Saves](#dying--death-saves)
+8. [Save & Load](#save--load)
+9. [Tips & Tricks](#tips--tricks)
+
+---
+
+## Getting Started
+
+When you first open the app, you'll see the **intro splash screen** — the campaign name, character name, and level. Tap anywhere to dismiss it and enter the tracker.
+
+> 💡 The intro splash also appears after a **Restart Session**, so it doubles as a "new session" signal.
+
+---
+
+## The Interface
+
+The app is laid out like a handheld device with three columns:
+
+```
+┌──────────────┬────────────────────────┬──────────────┐
+│              │  TITLEBAR              │              │
+│  LEFT PANEL  │────────────────────────│  RIGHT PANEL │
+│  (buttons)   │  PAGE CONTENT          │  (buttons)   │
+│              │                        │              │
+└──────────────┴────────────────────────┴──────────────┘
+```
+
+### Titlebar
+- **Page name** — shown on the left
+- **Status badge** — blinks in the centre when relevant:
+  - `EDIT` (amber) — edit mode is active
+  - `DYING` (red) — HP hit zero
+  - `N COND` (red) — N conditions are currently active
+- **Page counter** — shown on the right (e.g. `3 / 10`)
+
+### Left Panel
+Context-sensitive action buttons. Changes depending on mode:
+- **Normal mode** — navigation buttons (page up/down, scroll up/down)
+- **Edit mode** — field adjustment (INC/DEC) and field navigation (PREV/NEXT)
+- **Dying mode** — death save buttons (YASS / NOOO)
+
+### Right Panel
+Context-sensitive action buttons:
+- **Normal mode** — EDIT, HOME, and REST
+- **Edit mode** — SAVE and CANCEL
+- **Dying mode** — status info
+
+---
+
+## Navigating Pages
+
+There are **10 pages** total, cycling in order:
+
+| # | Page |
+|---|------|
+| 1 | INFO |
+| 2 | ABILITIES |
+| 3 | SKILLS |
+| 4 | COMBAT |
+| 5 | SPELLCASTING |
+| 6 | SPELL SLOTS |
+| 7 | FEATURES |
+| 8 | CONDITIONS |
+| 9 | INVENTORY |
+| 10 | CURRENCY |
+
+### Buttons
+All buttons in the side panels are **hold-to-repeat** — press and hold to fire repeatedly. Useful for rapidly adjusting values or scrolling through long lists.
+
+| Button | Action |
+|--------|--------|
+| `PG UP` / `PG DN` | Go to previous / next page |
+| `▲ UP` / `▼ DN` | Scroll (on SKILLS page) or navigate fields (in edit mode) |
+| `HOME` | Return to INFO page, exit edit mode |
+
+---
+
+## Edit Mode
+
+Most pages are **read-only** by default. To make changes, enter **Edit Mode**.
+
+### Entering Edit Mode
+Tap the **EDIT** button on the right panel. The titlebar will show a blinking amber `EDIT` badge.
+
+> Pages 1 (INFO), 3 (SKILLS), and 5 (SPELLCASTING) are permanently read-only — the EDIT button is disabled on these pages.
+
+### Making Changes
+Once in edit mode:
+1. Use **▲ PREV** / **▼ NEXT** on the left panel to select the field you want to change. The selected field is highlighted in amber.
+2. Use **▲ INC** / **▼ DEC** to adjust the value.
+3. Hold any button to repeat rapidly.
+
+The **FIELD X/Y** indicator at the bottom of the left panel shows which field is selected.
+
+### Saving or Cancelling
+| Button | Action |
+|--------|--------|
+| `✓ SAVE` | Confirms all changes and exits edit mode |
+| `✗ CANCEL` | Reverts everything back to how it was before you entered edit mode |
+
+> ⚠️ Changes are applied live as you adjust — but CANCEL will fully revert them all, so don't worry about experimenting.
+
+---
+
+## Pages Reference
+
+### 1 — INFO
+Read-only. Displays character name, class, subclass, race, background, and campaign. No interaction needed.
+
+---
+
+### 2 — ABILITIES
+Displays all 8 ability scores and modifiers. Editable.
+
+| Field | Notes |
+|-------|-------|
+| STR | Strength score |
+| INT | Intelligence score |
+| DEX | Dexterity score |
+| WIS | Wisdom score |
+| CON | Constitution score |
+| CHA | Charisma score |
+| PB | Proficiency Bonus — clamped between 2 and 6 |
+| HI | Half-caster flag (toggles YES/NO) — used in skill calculations |
+
+---
+
+### 3 — SKILLS
+Read-only. All skill and saving throw values are **auto-calculated** from your ability scores and proficiency bonus. Scroll through the list using `▲ UP` / `▼ DN`.
+
+Proficiency indicators:
+- `PRF` — proficient
+- `EXP` — expertise (double proficiency)
+- `·` — no proficiency (Jack of All Trades applies)
+
+---
+
+### 4 — COMBAT
+Your core combat stats. Editable.
+
+| Field | Notes |
+|-------|-------|
+| LEVEL | Character level |
+| HP | Current hit points — capped at Max HP |
+| MAX HP | Maximum hit points |
+| AC | Armour Class |
+| INIT | Initiative modifier |
+| SPEED | Movement speed in feet |
+| PASS PER | Passive Perception |
+
+A **HP bar** at the top of the page shows your current health visually:
+- White — healthy (above 50%)
+- Amber — bloodied (25–50%)
+- Red blinking — critical (below 25%)
+
+---
+
+### 5 — SPELLCASTING
+Read-only. Auto-calculated from your CHA modifier and Proficiency Bonus.
+
+| Stat | Formula |
+|------|---------|
+| Spell Save DC | 8 + PB + CHA mod |
+| Casting Modifier | CHA mod |
+| Spell Attack Bonus | PB + CHA mod |
+
+---
+
+### 6 — SPELL SLOTS
+Tracks remaining spell slots per level. Only levels available at your current character level are shown.
+
+- **INC** adds a slot back (recovering a used slot)
+- **DEC** spends a slot
+
+The pip display shows remaining slots visually. The fraction (e.g. `3/4`) shows remaining/max.
+
+---
+
+### 7 — FEATURES
+
+> ⚠️ **Disclaimer:** This page is tailored specifically for **Malto Dextrin** and contains features unique to his character. If you are adapting this tracker for a different character, this page will need to be rebuilt to match their class features. See the README for developer guidance.
+
+#### Bardic Inspiration
+Tracks remaining Bardic Inspiration charges (max 4). Editable in edit mode (field 1).
+
+#### Encouraging Song
+Tracks remaining Encouraging Song uses. Maximum uses = Proficiency Bonus. Editable in edit mode (field 2).
+
+#### Beast Mode
+Malto is infected with lycanthropy. This toggle switches between **Human** and **Werewolf** forms.
+
+**Tap the toggle directly on screen — no edit mode needed.**
+
+| State | Effect |
+|-------|--------|
+| OFF (Human) | Normal stats |
+| ON (Werewolf) | AC +1, Speed +10ft — applied automatically |
+
+When Beast Mode is active, the app displays Malto's attack stats for reference:
+- **Bite:** +4 to hit / 1d8+2 piercing
+- **Claw:** +4 to hit / 2d4+2 slashing
+
+#### Blood Lust Mode
+When Beast Mode is ON and HP drops **below 50%**, the entire UI turns red — screen, panels, and all. The page title throbs. This is your visual warning that Malto is in a frenzied, dangerous state.
+
+Toggling Beast Mode OFF reverts both the stat changes and the theming.
+
+---
+
+### 8 — CONDITIONS
+Tracks all 15 standard D&D 5e conditions plus Exhaustion levels 1–6.
+
+Conditions can only be toggled in **edit mode**:
+1. Use **▲ PREV** / **▼ NEXT** to navigate to the condition
+2. **INC** activates the condition, **DEC** deactivates it
+3. For **Exhaustion**, INC/DEC steps through levels 1–6
+
+Active conditions show in red. The titlebar shows a `N COND` badge whenever any condition is active.
+
+---
+
+### 9 — INVENTORY
+Tracks carried items and quantities.
+
+#### Adding Items
+1. Type the item name in the text field at the bottom of the screen
+2. Press **ADD** or hit **Enter**
+3. Items are added with a quantity of 1
+
+#### Editing Quantities
+Enter edit mode, navigate to the item, and use INC/DEC to adjust the quantity. Setting quantity to 0 removes the item automatically.
+
+#### Deleting Items
+Tap the **✕** button on any item row — no edit mode needed.
+
+---
+
+### 10 — CURRENCY
+Tracks Platinum, Gold, Silver, and Copper coins. Editable. Maximum 99,999 per denomination.
+
+---
+
+## The REST Menu
+
+Tap the amber **REST** button at the bottom of the right panel to open the REST overlay. It's accessible from any page at any time.
+
+Tap **CLOSE** (same button) to dismiss it.
+
+### Long Rest
+Restores everything:
+- HP → Max HP
+- All spell slots restored
+- Bardic Inspiration restored
+- Encouraging Song restored
+- Hit Dice recovered (half your total pool, minimum 1)
+
+A confirmation screen shows you exactly what will be restored before you commit.
+
+### Short Rest
+Spend a hit die to recover HP:
+1. Use INC/DEC to enter how many HP you're recovering (based on your dice roll)
+2. Tap **✓ REST** to confirm — spends 1 hit die
+3. Bardic Inspiration is only restored on a Short Rest at level 5+
+
+The button is disabled if you have no hit dice remaining.
+
+### Save / Load
+Export your current save or import a previous one. See [Save & Load](#save--load) below.
+
+### Restart Session
+Resets the character for a fresh session while keeping your permanent data intact.
+
+**What resets:**
+- HP → Max HP
+- All spell slots, Bardic Inspiration, Encouraging Song
+- All hit dice restored
+- All conditions cleared
+- Beast Mode turned off (AC and Speed reverted)
+
+**What is retained:**
+- All ability scores and stats
+- Inventory
+- Currency
+- Character level and Max HP
+
+After restarting, the intro splash screen plays again.
+
+---
+
+## Dying & Death Saves
+
+When HP hits **0**, the app enters **Dying Mode** automatically:
+- The screen switches to the Death Save tracker
+- The titlebar shows a blinking red `DYING` badge
+- The left panel shows **YASS** (success) and **NOOO** (failure) buttons
+
+Roll a d20 and tap the appropriate button:
+
+| Outcome | Result |
+|---------|--------|
+| 3 successes | **Second Wind** — HP restored to 1, return to COMBAT page |
+| 3 failures | **You Are Dead** — full reset, return to INFO page |
+
+> Successes and failures do not need to be consecutive.
+
+---
+
+## Save & Load
+
+The app saves automatically to your browser's local storage on every change. However, **local storage is per device, per browser** — your save on Chrome won't appear in Firefox, and your phone's save is separate from your laptop's.
+
+To transfer saves between devices, use the **REST → SAVE / LOAD** screen.
+
+### Exporting a Save
+1. Open REST → SAVE / LOAD
+2. Tap **⎘ COPY TO CLIPBOARD** under the EXPORT section
+3. Paste the copied text into a note, text file, or cloud document (OneDrive, Google Drive, Mega, etc.)
+
+### Importing a Save
+1. Copy your previously exported save text from wherever you stored it
+2. Open REST → SAVE / LOAD
+3. Paste the text into the IMPORT box
+4. Tap **↑ LOAD SAVE**
+
+A green confirmation message appears on success. The overlay closes automatically after loading.
+
+> ⚠️ If the text is corrupted or not a valid save, you'll see a red `✗ INVALID DATA` message. Nothing will be overwritten.
+
+---
+
+## Tips & Tricks
+
+- **Hold buttons** for faster adjustments — great for currency or large HP changes.
+- **The HP bar** on the COMBAT page gives you a quick visual health check at a glance.
+- **CANCEL in edit mode** is always safe — it fully reverts any changes made since you entered edit mode, so feel free to explore.
+- **Conditions badge** in the titlebar means you'll never forget you're Poisoned mid-combat.
+- **Beast Mode toggle** is always one tap away on the FEATURES page — no edit mode fumbling during a dramatic transformation moment.
+- **Export your save** at the end of every session before closing the browser. Takes 10 seconds and saves you a headache.
+- **Bookmark the GitHub Pages URL** on all your devices for instant access.

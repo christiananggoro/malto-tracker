@@ -86,6 +86,7 @@
     };
 
     const PAGES     = ["INFO","ABILITIES","SKILLS","COMBAT","SPELLCASTING","SPELL SLOTS","FEATURES","CONDITIONS","INVENTORY","CURRENCY"];
+    const PAGE_ICONS = ["◈","⬡","✦","⚔","✧","◉","★","⚠","⊞","◎"];
     const READ_ONLY = new Set([0,2,4]);
 
     const CONDITIONS_LIST = [
@@ -215,9 +216,9 @@
         display:flex;flex-direction:row;align-items:stretch;
         background:var(--pan);border:2px solid var(--bd);border-radius:4px;
         box-shadow:0 6px 40px #0009;
-        width:100%;max-width:700px;
+        width:100%;max-width:780px;
       }
-      .side{display:flex;flex-direction:column;width:112px;flex-shrink:0;padding:8px 6px;gap:5px;}
+      .side{display:flex;flex-direction:column;width:100px;flex-shrink:0;padding:8px 6px;gap:5px;}
       .side.L{border-right:2px solid var(--bd);}
       .side.R{border-left:2px solid var(--bd);}
       .side-lbl{
@@ -254,21 +255,36 @@
       .btn.warn::before{background:#3a2c08;}
       .btn.warn.active{background:#1e1600;color:#e8b820;border-color:var(--am);}
       .btn.off{opacity:0.18;pointer-events:none;}
+      .btn-sm{min-height:30px;font-size:10px;padding:3px 4px 3px 10px;}
       .screen-area{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden;}
-        display:flex;flex-direction:row;overflow-x:auto;flex-shrink:0;
-        border-bottom:2px solid var(--bd);background:var(--bg);
-        scrollbar-width:none;
+      .tab-bar{
+        display:grid;
+        grid-template-columns:repeat(5,1fr);
+        grid-template-rows:repeat(2,1fr);
+        flex-shrink:0;
+        border-bottom:2px solid var(--bd);
+        background:var(--bg);
+        gap:1px;
+        padding:1px;
       }
-      .tab-bar::-webkit-scrollbar{display:none;}
       .tab-btn{
-        flex-shrink:0;padding:5px 9px;font-family:var(--head);font-size:7px;
-        color:var(--mid);letter-spacing:1.5px;border:none;background:transparent;
-        cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;
+        display:flex;flex-direction:column;align-items:center;justify-content:center;
+        padding:9px 4px;font-family:var(--head);font-size:6.5px;
+        color:var(--mid);letter-spacing:1px;border:1px solid transparent;
+        background:var(--pan);border-radius:2px;
+        cursor:pointer;
         -webkit-tap-highlight-color:transparent;user-select:none;white-space:nowrap;
-        transition:color .1s;
+        transition:color .1s,background .1s,border-color .1s;
+        min-height:40px;touch-action:manipulation;
+        position:relative;overflow:hidden;
       }
-      .tab-btn.active{color:var(--hi);border-bottom-color:var(--hi);}
-      .tab-btn:active{color:var(--hi);}
+      .tab-btn::after{
+        content:'';position:absolute;bottom:0;left:15%;right:15%;
+        height:2px;background:transparent;border-radius:1px;transition:background .1s;
+      }
+      .tab-btn.active{color:var(--hi);background:var(--sel);border-color:var(--dim);}
+      .tab-btn.active::after{background:var(--hi);}
+      .tab-btn:active{color:var(--hi);background:var(--sel);}
       .titlebar{
         display:flex;justify-content:space-between;align-items:center;
         padding:7px 12px;border-bottom:2px solid var(--bd);background:var(--bg);flex-shrink:0;
@@ -303,6 +319,8 @@
         display:flex;flex-direction:column;gap:2px;justify-content:center;
       }
       .ab-cell.sel{border-color:var(--dim);background:var(--sel);}
+      .tappable{cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
+      .tappable:active{opacity:0.75;}
       .ab-name{font-size:8px;color:var(--mid);letter-spacing:1px;font-weight:bold;}
       .ab-val{font-size:20px;color:var(--hi);line-height:1.1;}
       .ab-mod{font-size:10px;color:var(--mid);}
@@ -552,14 +570,15 @@
       );
     }
 
-    function AbilitiesPage({state,sel,edit}) {
+    function AbilitiesPage({state,sel,edit,onSelectField}) {
       const labs=["STR","INT","DEX","WIS","CON","CHA","PB","HI"];
       return (
         <div className="ab-grid" style={{minHeight:280}}>
           {labs.map((l,i)=>{
             const v=state.abilities[i],isHI=i===7,mod=i<6?abilMod(v):null;
             return (
-              <div key={l} className={`ab-cell${edit&&sel===i?" sel":""}`}>
+              <div key={l} className={`ab-cell${edit&&sel===i?" sel":""}${edit?" tappable":""}`}
+                onPointerDown={edit?e=>{e.preventDefault();onSelectField(i);}:undefined}>
                 <div className="ab-name">{l}</div>
                 <div className="ab-val">{isHI?(v?"YES":"NO"):v}</div>
                 {mod!==null&&<div className="ab-mod">{sign(mod)}</div>}
@@ -606,7 +625,7 @@
       );
     }
 
-    function CombatPage({state,sel,edit}) {
+    function CombatPage({state,sel,edit,onSelectField}) {
       const{hp,maxHp,charLevel,ac,initMod,speed,pasPerc}=state;
       const pct=maxHp>0?hp/maxHp:0;
       const hpCls=pct<=0.25?"low":pct<=0.5?"mid":"";
@@ -622,7 +641,8 @@
           </div>
           <div style={{display:"flex",flexDirection:"column"}}>
             {rows.map(([label,val],i)=>(
-              <div key={label} className={`row${edit&&sel===i?" sel":""}`} style={{minHeight:40}}>
+              <div key={label} className={`row${edit&&sel===i?" sel":""}${edit?" tappable":""}`} style={{minHeight:40}}
+                onPointerDown={edit?e=>{e.preventDefault();onSelectField(i);}:undefined}>
                 <span className="lbl">{label}</span>
                 <span className="val">{val}</span>
               </div>
@@ -648,14 +668,15 @@
       );
     }
 
-    function SpellSlotsPage({state,sel,edit}) {
+    function SpellSlotsPage({state,sel,edit,onSelectField}) {
       const unlocked=unlockedSlots(state.charLevel);
       return (
         <div style={{display:"flex",flexDirection:"column"}}>
           {Array.from({length:unlocked},(_,i)=>{
             const mx=slotMax(state.charLevel,i),rem=mx-state.slotUsed[i];
             return (
-              <div key={i} className={`sp-row${edit&&sel===i?" sel":""}`} style={{minHeight:40}}>
+              <div key={i} className={`sp-row${edit&&sel===i?" sel":""}${edit?" tappable":""}`} style={{minHeight:40}}
+                onPointerDown={edit?e=>{e.preventDefault();onSelectField(i);}:undefined}>
                 <span className="sp-lbl">LVL {i+1}</span>
                 <span className="sp-pips">
                   {Array.from({length:mx},(_,p)=><span key={p} className={`sp-pip${p<rem?" on":""}`}/>)}
@@ -668,13 +689,16 @@
       );
     }
 
-    function FeaturesPage({state, sel, edit, onBeastToggle}) {
+    function FeaturesPage({state, sel, edit, onBeastToggle, onSelectField}) {
       const pb  = state.abilities[6];
       const bardicMax = 4, bardicRem = bardicMax - state.bardicUsed;
       const songMax   = pb,  songRem  = songMax  - (state.encouragingSongUsed||0);
       return (
         <div style={{display:"flex",flexDirection:"column",gap:0}}>
-          <div style={{display:"flex",flexDirection:"row",alignItems:"center",justifyContent:"space-between",padding:"6px 10px",borderBottom:"1px solid var(--bd2)",flexShrink:0}}>
+          <div style={{display:"flex",flexDirection:"row",alignItems:"center",justifyContent:"space-between",padding:"6px 10px",borderBottom:"1px solid var(--bd2)",flexShrink:0}}
+            className={edit?" tappable":""}
+            onPointerDown={edit?e=>{e.preventDefault();onSelectField(0);}:undefined}
+            style={{display:"flex",flexDirection:"row",alignItems:"center",justifyContent:"space-between",padding:"6px 10px",borderBottom:"1px solid var(--bd2)",flexShrink:0,background:edit&&sel===0?"var(--sel)":""}}>
             <div className="b-lbl" style={{fontSize:8}}>BARDIC INSP.</div>
             <div style={{display:"flex",gap:5,alignItems:"center"}}>
               {Array.from({length:bardicMax},(_,i)=>(
@@ -684,7 +708,10 @@
             </div>
             <div style={{fontSize:12,color:edit&&sel===0?"var(--am)":"var(--hi)",width:28,textAlign:"right",fontWeight:"bold"}}>{bardicRem}/{bardicMax}</div>
           </div>
-          <div style={{display:"flex",flexDirection:"row",alignItems:"center",justifyContent:"space-between",padding:"6px 10px",borderBottom:"1px solid var(--bd2)",flexShrink:0}}>
+          <div
+            className={edit?" tappable":""}
+            onPointerDown={edit?e=>{e.preventDefault();onSelectField(1);}:undefined}
+            style={{display:"flex",flexDirection:"row",alignItems:"center",justifyContent:"space-between",padding:"6px 10px",borderBottom:"1px solid var(--bd2)",flexShrink:0,background:edit&&sel===1?"var(--sel)":""}}>
             <div className="b-lbl" style={{fontSize:8}}>ENC. SONG</div>
             <div style={{display:"flex",gap:5,alignItems:"center"}}>
               {Array.from({length:songMax},(_,i)=>(
@@ -732,12 +759,13 @@
       );
     }
 
-    function CurrencyPage({state,sel,edit}) {
+    function CurrencyPage({state,sel,edit,onSelectField}) {
       const labs=["PP","GP","SP","CP"],cols=["#9999ee","#ddbb33","#aaaaaa","#cc8844"];
       return (
         <div className="cur-grid" style={{minHeight:200}}>
           {labs.map((l,i)=>(
-            <div key={l} className={`cur-cell${edit&&sel===i?" sel":""}`}>
+            <div key={l} className={`cur-cell${edit&&sel===i?" sel":""}${edit?" tappable":""}`}
+              onPointerDown={edit?e=>{e.preventDefault();onSelectField(i);}:undefined}>
               <div className="cur-name" style={{color:edit&&sel===i?"var(--hi)":cols[i]}}>{l}</div>
               <div className="cur-val">{state.currency[i]}</div>
             </div>
@@ -746,7 +774,7 @@
       );
     }
 
-    function ConditionsPage({state, sel, edit}) {
+    function ConditionsPage({state, sel, edit, onSelectField}) {
       const exhLevel = state.conditions["Exhaustion"] || 0;
       return (
         <div style={{display:"flex",flexDirection:"column"}}>
@@ -755,7 +783,8 @@
             const active = isExh ? exhLevel > 0 : !!state.conditions[name];
             const isSelected = edit && sel === i;
             return (
-              <div key={name} className={`cond-row${isSelected?" sel":""}`} style={{minHeight:36}}>
+              <div key={name} className={`cond-row${isSelected?" sel":""}${edit?" tappable":""}`} style={{minHeight:36}}
+                onPointerDown={edit?e=>{e.preventDefault();onSelectField(i);}:undefined}>
                 <span className={`cond-name${active?" active":""}`}>{name}</span>
                 <span className="cond-right">
                   {isExh ? (
@@ -775,7 +804,7 @@
       );
     }
 
-    function InventoryPage({state, sel, edit, onAdd, onDelete}) {
+    function InventoryPage({state, sel, edit, onAdd, onDelete, onSelectField}) {
       const inputRef = useRef(null);
       const handleAdd = () => {
         const n = inputRef.current ? inputRef.current.value.trim() : "";
@@ -790,11 +819,12 @@
             {state.inventory.length===0
               ? <div className="inv-empty" style={{minHeight:60}}>EMPTY — ADD ITEMS BELOW</div>
               : state.inventory.map((item,i) => (
-                <div key={i} className={`inv-row${edit&&sel===i?" sel":""}`}>
+                <div key={i} className={`inv-row${edit&&sel===i?" sel":""}${edit?" tappable":""}`}
+                  onPointerDown={edit?e=>{e.preventDefault();onSelectField(i);}:undefined}>
                   <span className="inv-qty">{item.qty}</span>
                   <span className="inv-x">×</span>
                   <span className="inv-name">{item.name}</span>
-                  <span className="inv-del" onPointerDown={e=>{e.preventDefault();onDelete(i);}}>✕</span>
+                  <span className="inv-del" onPointerDown={e=>{e.preventDefault();e.stopPropagation();onDelete(i);}}>✕</span>
                 </div>
               ))
             }
@@ -1203,15 +1233,15 @@
             )}
             {(()=>{switch(page){
               case 0: return <InfoPage/>;
-              case 1: return <AbilitiesPage state={state} sel={sel} edit={edit}/>;
+              case 1: return <AbilitiesPage state={state} sel={sel} edit={edit} onSelectField={setSel}/>;
               case 2: return <SkillsPage state={state}/>;
-              case 3: return <CombatPage state={state} sel={sel} edit={edit}/>;
+              case 3: return <CombatPage state={state} sel={sel} edit={edit} onSelectField={setSel}/>;
               case 4: return <SpellcastingPage state={state}/>;
-              case 5: return <SpellSlotsPage state={state} sel={sel} edit={edit}/>;
-              case 6: return <FeaturesPage state={state} sel={sel} edit={edit} onBeastToggle={toggleBeastMode}/>;
-              case 7: return <ConditionsPage state={state} sel={sel} edit={edit}/>;
-              case 8: return <InventoryPage state={state} sel={sel} edit={edit} onAdd={addItem} onDelete={deleteItem}/>;
-              case 9: return <CurrencyPage state={state} sel={sel} edit={edit}/>;
+              case 5: return <SpellSlotsPage state={state} sel={sel} edit={edit} onSelectField={setSel}/>;
+              case 6: return <FeaturesPage state={state} sel={sel} edit={edit} onBeastToggle={toggleBeastMode} onSelectField={setSel}/>;
+              case 7: return <ConditionsPage state={state} sel={sel} edit={edit} onSelectField={setSel}/>;
+              case 8: return <InventoryPage state={state} sel={sel} edit={edit} onAdd={addItem} onDelete={deleteItem} onSelectField={setSel}/>;
+              case 9: return <CurrencyPage state={state} sel={sel} edit={edit} onSelectField={setSel}/>;
             }})()}
           </>
         );
@@ -1230,16 +1260,19 @@
           <div className="gap"/>
           <Btn label="CONTINUE" cls="ok" onClick={dismissSplash}/>
         </>);
+        if(edit && page===9) return(<>
+          <div className="side-lbl">ADJUST</div>
+          {[50,10,5,1,-1,-5,-10,-50].map(v=>(
+            <Btn key={v} label={v>0?`+${v}`:String(v)} cls={`btn-sm ${v>0?"ok":"danger"}`} onClick={()=>adjRef.current(v)}/>
+          ))}
+          <div className="gap"/>
+        </>);
         if(edit) return(<>
           <div className="side-lbl">ADJUST</div>
           <HoldBtn label="▲  INC"  onFire={adjUp}/>
           <HoldBtn label="▼  DEC"  onFire={adjDown}/>
-          <hr className="hr"/>
-          <div className="side-lbl">FIELD</div>
-          <HoldBtn label="▲  PREV" onFire={navUp}/>
-          <HoldBtn label="▼  NEXT" onFire={navDown}/>
           <div className="gap"/>
-          <div className="side-info">FIELD {sel+1}/{maxSel()||1}</div>
+          <div className="side-info">FIELD {sel+1}/{maxSel()||1}<br/>TAP TO<br/>SELECT</div>
         </>);
         return(<>
           <div className="side-lbl">NAVIGATE</div>
@@ -1306,7 +1339,8 @@
                   {PAGES.map((p,i)=>(
                     <button key={i} className={`tab-btn${page===i?" active":""}`}
                       onPointerDown={e=>{e.preventDefault();setPage(i);setSel(0);setSkSc(0);setEdit(false);}}>
-                      {p}
+                      <span style={{fontSize:13,lineHeight:1,marginBottom:3}}>{PAGE_ICONS[i]}</span>
+                      <span>{p}</span>
                     </button>
                   ))}
                 </div>

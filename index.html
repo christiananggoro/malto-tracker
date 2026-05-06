@@ -85,7 +85,7 @@
       beastMode:false,
     };
 
-    const PAGES     = ["INFO","ABILITIES","SKILLS","COMBAT","SPELLCASTING","SPELL SLOTS","FEATURES","CONDITIONS","INVENTORY","CURRENCY"];
+    const PAGES     = ["INFO","ABILITIES","SKILLS","COMBAT","SPELL SLOTS","FEATURES","CONDITIONS","INVENTORY","CURRENCY"];
     const PAGE_ICONS = ["◈","⬡","✦","⚔","✧","◉","★","⚠","⊞","◎"];
     const READ_ONLY = new Set([0,2,4]);
 
@@ -111,7 +111,7 @@
       if(sk.prof===1) return mod+pb;
       return mod+joat;
     };
-    const fieldCount = (pg,lv,invLen) => [0,8,0,7,0,unlockedSlots(lv),2,15,invLen||0,4][pg]||0;
+    const fieldCount = (pg,lv,invLen) => [0,8,0,7,unlockedSlots(lv),2,15,invLen||0,4][pg]||0;
     const loadState = () => {
       try {
         const r = localStorage.getItem("malto_v3");
@@ -218,9 +218,9 @@
         box-shadow:0 6px 40px #0009;
         width:100%;max-width:780px;
       }
-      .side{display:flex;flex-direction:column;width:100px;flex-shrink:0;padding:8px 6px;gap:5px;}
-      .side.L{border-right:2px solid var(--bd);}
-      .side.R{border-left:2px solid var(--bd);}
+      .side{display:flex;flex-direction:column;flex-shrink:0;padding:8px 6px;gap:5px;}
+      .side.L{border-right:2px solid var(--bd);width:100px;}
+      .side.R{border-left:2px solid var(--bd);width:100px;}
       .side-lbl{
         font-family:var(--head);font-size:7px;color:var(--mid);
         letter-spacing:2px;text-align:center;padding:4px 0 6px;
@@ -229,6 +229,26 @@
       .gap{flex:1;min-height:4px;}
       .hr{border:none;border-top:1px solid var(--bd2);margin:2px 0;}
       .side-info{font-size:9px;color:var(--mid);text-align:center;line-height:2.1;font-weight:bold;}
+      .nav-tabs{display:flex;flex-direction:column;gap:2px;flex:1;}
+      .nav-tab{
+        display:flex;flex-direction:row;align-items:center;gap:5px;
+        padding:5px 6px;border:1px solid transparent;border-radius:3px;
+        font-family:var(--head);font-size:6px;color:var(--mid);letter-spacing:0.5px;
+        cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none;
+        touch-action:manipulation;white-space:nowrap;overflow:hidden;
+        background:transparent;width:100%;text-align:left;
+        transition:color .1s,background .1s,border-color .1s;
+        position:relative;flex:1;
+      }
+      .nav-tab::before{
+        content:'';position:absolute;left:0;top:20%;bottom:20%;
+        width:2px;background:transparent;border-radius:0 2px 2px 0;transition:background .1s;
+      }
+      .nav-tab.active{color:var(--hi);background:var(--sel);border-color:var(--dim);}
+      .nav-tab.active::before{background:var(--hi);}
+      .nav-tab:active{color:var(--hi);background:var(--sel);}
+      .nav-tab-icon{font-size:12px;line-height:1;flex-shrink:0;}
+      .nav-tab-lbl{font-size:5.5px;letter-spacing:0.5px;line-height:1.2;overflow:hidden;text-overflow:ellipsis;}
       .btn{
         position:relative;width:100%;min-height:42px;
         display:flex;align-items:center;justify-content:center;text-align:center;
@@ -257,34 +277,6 @@
       .btn.off{opacity:0.18;pointer-events:none;}
       .btn-sm{min-height:30px;font-size:10px;padding:3px 4px 3px 10px;}
       .screen-area{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden;}
-      .tab-bar{
-        display:grid;
-        grid-template-columns:repeat(5,1fr);
-        grid-template-rows:repeat(2,1fr);
-        flex-shrink:0;
-        border-bottom:2px solid var(--bd);
-        background:var(--bg);
-        gap:1px;
-        padding:1px;
-      }
-      .tab-btn{
-        display:flex;flex-direction:column;align-items:center;justify-content:center;
-        padding:9px 4px;font-family:var(--head);font-size:6.5px;
-        color:var(--mid);letter-spacing:1px;border:1px solid transparent;
-        background:var(--pan);border-radius:2px;
-        cursor:pointer;
-        -webkit-tap-highlight-color:transparent;user-select:none;white-space:nowrap;
-        transition:color .1s,background .1s,border-color .1s;
-        min-height:40px;touch-action:manipulation;
-        position:relative;overflow:hidden;
-      }
-      .tab-btn::after{
-        content:'';position:absolute;bottom:0;left:15%;right:15%;
-        height:2px;background:transparent;border-radius:1px;transition:background .1s;
-      }
-      .tab-btn.active{color:var(--hi);background:var(--sel);border-color:var(--dim);}
-      .tab-btn.active::after{background:var(--hi);}
-      .tab-btn:active{color:var(--hi);background:var(--sel);}
       .titlebar{
         display:flex;justify-content:space-between;align-items:center;
         padding:7px 12px;border-bottom:2px solid var(--bd);background:var(--bg);flex-shrink:0;
@@ -627,28 +619,69 @@
 
     function CombatPage({state,sel,edit,onSelectField}) {
       const{hp,maxHp,charLevel,ac,initMod,speed,pasPerc}=state;
+      const chaMod=abilMod(state.abilities[5]),pb=state.abilities[6];
+      const spellDC=8+pb+chaMod, castMod=chaMod, spellAtk=pb+chaMod;
       const pct=maxHp>0?hp/maxHp:0;
       const hpCls=pct<=0.25?"low":pct<=0.5?"mid":"";
-      const rows=[
-        ["LEVEL",charLevel],["HP",`${hp} / ${maxHp}`],["MAX HP",maxHp],
-        ["AC",ac],["INIT",sign(initMod)],["SPEED",`${speed} ft`],["PASS PER",pasPerc],
+      // grid: idx 2-6 are editable, 7-9 are auto-calc read-only
+      const gridItems=[
+        {label:"MAX HP",  val:maxHp,        idx:2, edit:true},
+        {label:"AC",      val:ac,           idx:3, edit:true},
+        {label:"INIT",    val:sign(initMod),idx:4, edit:true},
+        {label:"SPEED",   val:`${speed}ft`, idx:5, edit:true},
+        {label:"PASS",    val:pasPerc,      idx:6, edit:true},
+        {label:"SPELL SV DC",   val:spellDC,      idx:7, edit:false},
+        {label:"CAST MOD",    val:sign(castMod),idx:8, edit:false},
+        {label:"SPELL ATK BONUS",  val:sign(spellAtk),idx:9,edit:false},
       ];
       return (
-        <div style={{display:"flex",flexDirection:"column"}}>
-          <div className="hp-wrap">
-            <div className="hp-lbl"><span>HIT POINTS</span><span>{hp} / {maxHp}</span></div>
-            <div className="hp-outer"><div className={`hp-inner ${hpCls}`} style={{width:`${Math.max(0,pct*100)}%`}}/></div>
+        <>
+          {/* LEVEL header */}
+          <div className={`row${edit&&sel===0?" sel":""}${edit?" tappable":""}`}
+            style={{minHeight:44,flexShrink:0}}
+            onPointerDown={edit?e=>{e.preventDefault();onSelectField(0);}:undefined}>
+            <span className="lbl" style={{fontSize:11,letterSpacing:2}}>LEVEL</span>
+            <span className="val" style={{fontSize:22,fontWeight:"bold"}}>{charLevel}</span>
           </div>
-          <div style={{display:"flex",flexDirection:"column"}}>
-            {rows.map(([label,val],i)=>(
-              <div key={label} className={`row${edit&&sel===i?" sel":""}${edit?" tappable":""}`} style={{minHeight:40}}
-                onPointerDown={edit?e=>{e.preventDefault();onSelectField(i);}:undefined}>
-                <span className="lbl">{label}</span>
-                <span className="val">{val}</span>
-              </div>
-            ))}
+
+          {/* HP BAR */}
+          <div className={`hp-wrap${edit&&sel===1?" sel":""}`}
+            style={{flexShrink:0,cursor:edit?"pointer":"default",
+              padding:"6px 10px",border:"1px solid transparent",
+              borderColor:edit&&sel===1?"var(--am)":"transparent",
+              background:edit&&sel===1?"var(--sel)":"transparent",marginBottom:0}}
+            onPointerDown={edit?e=>{e.preventDefault();onSelectField(1);}:undefined}>
+            <div className="hp-lbl">
+              <span>HIT POINTS</span>
+              <span style={{color:edit&&sel===1?"var(--am)":"var(--hi)"}}>{hp} / {maxHp}</span>
+            </div>
+            <div className="hp-outer">
+              <div className={`hp-inner ${hpCls}`} style={{width:`${Math.max(0,pct*100)}%`}}/>
+            </div>
           </div>
-        </div>
+
+          {/* 2×4 GRID */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:1,flexShrink:0,marginTop:6,
+            border:"1px solid var(--bd2)",borderRadius:2,overflow:"hidden"}}>
+            {gridItems.map(({label,val,idx,edit:editable})=>{
+              const isReadOnly=!editable;
+              const isSelected=edit&&sel===idx;
+              return (
+                <div key={label}
+                  className={`ab-cell${isSelected?" sel":""}`}
+                  style={{borderRadius:0,minHeight:54,
+                    cursor:edit&&editable?"pointer":"default",
+                    opacity:isReadOnly?0.75:1,
+                    borderColor:isSelected?"var(--am)":undefined}}
+                  onPointerDown={edit&&editable?e=>{e.preventDefault();onSelectField(idx);}:undefined}>
+                  <div className="ab-name" style={{color:isReadOnly?"var(--dim)":undefined}}>{label}</div>
+                  <div className="ab-val" style={{fontSize:18}}>{val}</div>
+                  {isReadOnly&&<div style={{fontSize:7,color:"var(--dim)",letterSpacing:1,marginTop:1}}>AUTO</div>}
+                </div>
+              );
+            })}
+          </div>
+        </>
       );
     }
 
@@ -689,9 +722,14 @@
       );
     }
 
+    const bardicDie = lv => lv>=15?"d12":lv>=10?"d10":lv>=5?"d8":"d6";
+
     function FeaturesPage({state, sel, edit, onBeastToggle, onSelectField}) {
       const pb  = state.abilities[6];
-      const bardicMax = 4, bardicRem = bardicMax - state.bardicUsed;
+      const chaMod = abilMod(state.abilities[5]);
+      const bardicMax = Math.max(1, chaMod);
+      const bardicRem = bardicMax - state.bardicUsed;
+      const die = bardicDie(state.charLevel);
       const songMax   = pb,  songRem  = songMax  - (state.encouragingSongUsed||0);
       return (
         <div style={{display:"flex",flexDirection:"column",gap:0}}>
@@ -699,8 +737,11 @@
             className={edit?" tappable":""}
             onPointerDown={edit?e=>{e.preventDefault();onSelectField(0);}:undefined}
             style={{display:"flex",flexDirection:"row",alignItems:"center",justifyContent:"space-between",padding:"6px 10px",borderBottom:"1px solid var(--bd2)",flexShrink:0,background:edit&&sel===0?"var(--sel)":""}}>
-            <div className="b-lbl" style={{fontSize:8}}>BARDIC INSP.</div>
-            <div style={{display:"flex",gap:5,alignItems:"center"}}>
+            <div style={{display:"flex",flexDirection:"column",gap:2}}>
+              <div className="b-lbl" style={{fontSize:8}}>BARDIC INSP.</div>
+              <div style={{fontSize:9,color:"var(--am)",fontFamily:"var(--head)",letterSpacing:1,fontWeight:"bold"}}>{die}</div>
+            </div>
+            <div style={{display:"flex",gap:4,alignItems:"center",flexWrap:"wrap",justifyContent:"flex-end",maxWidth:"55%"}}>
               {Array.from({length:bardicMax},(_,i)=>(
                 <div key={i} className={`b-pip${i<bardicRem?" on":""}`}
                   style={{width:18,height:18,borderColor:edit&&sel===0?"var(--am)":undefined}}/>
@@ -734,8 +775,8 @@
                 <div className="beast-status on">{(state.hp/state.maxHp)<0.5?"⚠ BLOOD LUST":"TRANSFORMED"}</div>
                 <div style={{width:"90%",borderTop:"1px solid #3a1010",marginTop:4,paddingTop:8,display:"flex",flexDirection:"column",gap:5}}>
                   {[
-                    {name:"BITE", hit:"+4", dmg:"1d8+2", note:"piercing"},
-                    {name:"CLAW", hit:"+4", dmg:"2d4+2", note:"slashing"},
+                    {name:"BITE", hit:"+5", dmg:"1d8+2", note:"piercing"},
+                    {name:"CLAW", hit:"+5", dmg:"2d4+2", note:"slashing"},
                   ].map(atk=>(
                     <div key={atk.name} style={{
                       display:"flex",alignItems:"center",justifyContent:"space-between",
@@ -1143,20 +1184,22 @@
               else ns.abilities[sel]=Math.max(1,Math.min(30,ns.abilities[sel]+delta));
               break;
             case 3:{
+              // sel: 0=charLevel,1=hp,2=maxHp,3=ac,4=initMod,5=speed,6=pasPerc
               const keys=["charLevel","hp","maxHp","ac","initMod","speed","pasPerc"];
               const mins=[1,0,1,0,-10,0,1],maxes=[20,ns.maxHp,99,30,10,120,30];
               const k=keys[sel];
               if(k){ns[k]=Math.max(mins[sel],Math.min(maxes[sel],ns[k]+delta));if(k==="maxHp"&&ns.hp>ns.maxHp)ns.hp=ns.maxHp;}
               break;
             }
-            case 5:{const mx=slotMax(ns.charLevel,sel);ns.slotUsed[sel]=Math.max(0,Math.min(mx,ns.slotUsed[sel]-delta));break;}
-            case 6:{
+            case 4:{const mx=slotMax(ns.charLevel,sel);ns.slotUsed[sel]=Math.max(0,Math.min(mx,ns.slotUsed[sel]-delta));break;}
+            case 5:{
               const pb=ns.abilities[6];
-              if(sel===0) ns.bardicUsed=Math.max(0,Math.min(4,ns.bardicUsed-delta));
+              const chaMod=Math.max(1,Math.floor((ns.abilities[5]-10)/2));
+              if(sel===0) ns.bardicUsed=Math.max(0,Math.min(chaMod,ns.bardicUsed-delta));
               else if(sel===1) ns.encouragingSongUsed=Math.max(0,Math.min(pb,(ns.encouragingSongUsed||0)-delta));
               break;
             }
-            case 7:{
+            case 6:{
               const name=CONDITIONS_LIST[sel];
               if(name==="Exhaustion"){
                 const cur=ns.conditions["Exhaustion"]||0;
@@ -1169,14 +1212,14 @@
               }
               break;
             }
-            case 8:{
+            case 7:{
               if(ns.inventory[sel]){
                 ns.inventory[sel]={...ns.inventory[sel],qty:Math.max(0,ns.inventory[sel].qty+delta)};
                 if(ns.inventory[sel].qty===0) ns.inventory.splice(sel,1);
               }
               break;
             }
-            case 9:ns.currency[sel]=Math.max(0,Math.min(99999,ns.currency[sel]+delta));break;
+            case 8:ns.currency[sel]=Math.max(0,Math.min(99999,ns.currency[sel]+delta));break;
           }
           return ns;
         });
@@ -1236,18 +1279,18 @@
               case 1: return <AbilitiesPage state={state} sel={sel} edit={edit} onSelectField={setSel}/>;
               case 2: return <SkillsPage state={state}/>;
               case 3: return <CombatPage state={state} sel={sel} edit={edit} onSelectField={setSel}/>;
-              case 4: return <SpellcastingPage state={state}/>;
-              case 5: return <SpellSlotsPage state={state} sel={sel} edit={edit} onSelectField={setSel}/>;
-              case 6: return <FeaturesPage state={state} sel={sel} edit={edit} onBeastToggle={toggleBeastMode} onSelectField={setSel}/>;
-              case 7: return <ConditionsPage state={state} sel={sel} edit={edit} onSelectField={setSel}/>;
-              case 8: return <InventoryPage state={state} sel={sel} edit={edit} onAdd={addItem} onDelete={deleteItem} onSelectField={setSel}/>;
-              case 9: return <CurrencyPage state={state} sel={sel} edit={edit} onSelectField={setSel}/>;
+              case 4: return <SpellSlotsPage state={state} sel={sel} edit={edit} onSelectField={setSel}/>;
+              case 5: return <FeaturesPage state={state} sel={sel} edit={edit} onBeastToggle={toggleBeastMode} onSelectField={setSel}/>;
+              case 6: return <ConditionsPage state={state} sel={sel} edit={edit} onSelectField={setSel}/>;
+              case 7: return <InventoryPage state={state} sel={sel} edit={edit} onAdd={addItem} onDelete={deleteItem} onSelectField={setSel}/>;
+              case 8: return <CurrencyPage state={state} sel={sel} edit={edit} onSelectField={setSel}/>;
             }})()}
           </>
         );
       };
 
       const LeftPanel = ()=>{
+        // Death saves mode
         if(dying&&!splash) return(<>
           <div className="side-lbl">DEATH SAVES</div>
           <Btn label="✓  YASS" cls="ok"     onClick={onSucc}/>
@@ -1260,27 +1303,50 @@
           <div className="gap"/>
           <Btn label="CONTINUE" cls="ok" onClick={dismissSplash}/>
         </>);
-        if(edit && page===9) return(<>
-          <div className="side-lbl">ADJUST</div>
-          {[50,10,5,1,-1,-5,-10,-50].map(v=>(
-            <Btn key={v} label={v>0?`+${v}`:String(v)} cls={`btn-sm ${v>0?"ok":"danger"}`} onClick={()=>adjRef.current(v)}/>
-          ))}
-          <div className="gap"/>
-        </>);
-        if(edit) return(<>
-          <div className="side-lbl">ADJUST</div>
-          <HoldBtn label="▲  INC"  onFire={adjUp}/>
-          <HoldBtn label="▼  DEC"  onFire={adjDown}/>
-          <div className="gap"/>
-          <div className="side-info">FIELD {sel+1}/{maxSel()||1}<br/>TAP TO<br/>SELECT</div>
-        </>);
+
+        // Edit mode — page-specific controls
+        if(edit) {
+          if(page===9) return(<>
+            <div className="side-lbl">ADJUST</div>
+            {[50,10,5,1,-1,-5,-10,-50].map(v=>(
+              <Btn key={v} label={v>0?`+${v}`:String(v)} cls={`btn-sm ${v>0?"ok":"danger"}`} onClick={()=>adjRef.current(v)}/>
+            ))}
+            <div className="gap"/>
+          </>);
+          // All other editable pages: INC/DEC + field info
+          return(<>
+            <div className="side-lbl">ADJUST</div>
+            <HoldBtn label="▲  INC"  onFire={adjUp}/>
+            <HoldBtn label="▼  DEC"  onFire={adjDown}/>
+            <div className="gap"/>
+            <div className="side-info">FIELD {sel+1}/{maxSel()||1}<br/>TAP TO<br/>SELECT</div>
+          </>);
+        }
+
+        // Normal mode — vertical tab navigation
         return(<>
-          <div className="side-lbl">NAVIGATE</div>
-          <HoldBtn label="▲  UP" onFire={navUp}/>
-          <HoldBtn label="▼  DN" onFire={navDown}/>
-          <div className="gap"/>
+          <div className="side-lbl">PAGES</div>
+          <div className="nav-tabs">
+            {PAGES.map((p,i)=>(
+              <button key={i} className={`nav-tab${page===i?" active":""}`}
+                onPointerDown={e=>{e.preventDefault();setPage(i);setSel(0);setSkSc(0);setEdit(false);}}>
+                <span className="nav-tab-icon">{PAGE_ICONS[i]}</span>
+                <span className="nav-tab-lbl">{p}</span>
+              </button>
+            ))}
+          </div>
         </>);
       };
+
+      const useBardicInsp  = useCallback(()=>st(s=>{
+        const chaMod=Math.max(1,Math.floor((s.abilities[5]-10)/2));
+        return {...s, bardicUsed:Math.min(chaMod, s.bardicUsed+1)};
+      }),[]);
+      const unsetBardicInsp = useCallback(()=>st(s=>({...s, bardicUsed:Math.max(0, s.bardicUsed-1)})),[]);
+      const useSong         = useCallback(()=>st(s=>{
+        const pb=s.abilities[6];
+        return {...s, encouragingSongUsed:Math.min(pb,(s.encouragingSongUsed||0)+1)};
+      }),[]);
 
       const RightPanel = ()=>{
         if(dying&&!splash) return(<>
@@ -1299,9 +1365,15 @@
         return(<>
           <div className="side-lbl">ACTION</div>
           <Btn label="EDIT" cls={isRO?"":"hi"} off={isRO} onClick={enterEdit}/>
-          <Btn label="HOME" onClick={()=>{setPage(0);setEdit(false);setSel(0);setResting(false);}}/>
+          {page===6 && <>
+            <hr className="hr"/>
+            <div className="side-lbl">USE</div>
+            <Btn label="BARDIC" cls="warn" onClick={useBardicInsp}/>
+            <Btn label="UNSET"  cls="warn" onClick={useBardicInsp}/>
+            <hr className="hr"/>
+            <Btn label="SING" cls="warn" onClick={useSong}/>
+          </>}
           <div className="gap"/>
-          <div className="side-info">PAGE {page+1}<br/>OF {PAGES.length}</div>
           <hr className="hr"/>
           <Btn label={resting?"CLOSE":"REST"} cls="warn" onClick={()=>{setResting(r=>!r);setEdit(false);}}/>
         </>);
@@ -1334,15 +1406,6 @@
                   {dying&&!splash &&<div className="tb-badge tb-dying">DYING</div>}
                   {activeConditions>0&&!dying&&!edit&&<div className="tb-badge" style={{color:"var(--rd)",borderColor:"var(--rd)"}}>{activeConditions} COND</div>}
                   <div className="tb-pg">{page+1} / {PAGES.length}</div>
-                </div>
-                <div className="tab-bar">
-                  {PAGES.map((p,i)=>(
-                    <button key={i} className={`tab-btn${page===i?" active":""}`}
-                      onPointerDown={e=>{e.preventDefault();setPage(i);setSel(0);setSkSc(0);setEdit(false);}}>
-                      <span style={{fontSize:13,lineHeight:1,marginBottom:3}}>{PAGE_ICONS[i]}</span>
-                      <span>{p}</span>
-                    </button>
-                  ))}
                 </div>
                 <div className="screen">
                   <div className="screen-inner">{renderPage()}</div>

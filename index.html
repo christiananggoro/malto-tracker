@@ -86,7 +86,7 @@
     };
 
     const PAGES     = ["INFO","ABILITIES","SKILLS","COMBAT","SPELL SLOTS","FEATURES","CONDITIONS","INVENTORY","CURRENCY"];
-    const PAGE_ICONS = ["◈","⬡","✦","⚔","✧","◉","★","⚠","⊞","◎"];
+    const PAGE_ICONS = ["◈","⬡","✦","⚔","◉","★","⚠","⊞","◎"];
     const READ_ONLY = new Set([0,2,4]);
 
     const CONDITIONS_LIST = [
@@ -934,7 +934,7 @@
               <div className="rest-option short" onPointerDown={e=>{e.preventDefault();setSub("short-hd");}}>
                 <div className="rest-opt-name short">SHORT REST</div>
                 <div className="rest-opt-desc">
-                  SPEND HIT DICE TO RECOVER HP{state.charLevel>=5?" · BARDIC RESTORED":""}<br/>
+                  SPEND HIT DICE TO RECOVER HP · BARDIC RESTORED<br/>
                   HIT DICE AVAILABLE: {hdAvail}/{hdMax}
                 </div>
               </div>
@@ -977,7 +977,7 @@
                 </div>
                 <div style={{fontSize:8,color:"var(--mid)",letterSpacing:1,fontWeight:"bold",textAlign:"center"}}>
                   DICE AVAILABLE: {hdAvail}/{hdMax}
-                  {state.charLevel>=5 && "\nBARDIC INSPIRATION WILL BE RESTORED"}
+                  {"BARDIC INSPIRATION WILL BE RESTORED"}
                 </div>
               </div>
               <div style={{display:"flex",gap:8,width:"100%",marginTop:8}}>
@@ -1123,7 +1123,7 @@
       const doShortRest = (hdGain)=>st(s=>({
         ...s,
         hp: Math.min(s.maxHp, s.hp + hdGain),
-        bardicUsed: s.charLevel>=5 ? 0 : s.bardicUsed,
+        bardicUsed: 0,
         hitDiceUsed: Math.min(s.charLevel+(s.bonusHitDice||0), (s.hitDiceUsed||0) + (hdGain>0?1:0)),
       }));
 
@@ -1306,7 +1306,7 @@
 
         // Edit mode — page-specific controls
         if(edit) {
-          if(page===9) return(<>
+          if(page===8) return(<>
             <div className="side-lbl">ADJUST</div>
             {[50,10,5,1,-1,-5,-10,-50].map(v=>(
               <Btn key={v} label={v>0?`+${v}`:String(v)} cls={`btn-sm ${v>0?"ok":"danger"}`} onClick={()=>adjRef.current(v)}/>
@@ -1365,7 +1365,7 @@
         return(<>
           <div className="side-lbl">ACTION</div>
           <Btn label="EDIT" cls={isRO?"":"hi"} off={isRO} onClick={enterEdit}/>
-          {page===6 && <>
+          {page===5 && <>
             <hr className="hr"/>
             <div className="side-lbl">USE</div>
             <Btn label="BARDIC" cls="warn" onClick={useBardicInsp}/>
